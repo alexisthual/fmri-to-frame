@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fmri2frame"
+authors = [
+  {name = "Alexis Thual", email = "alexisthual@gmail.com"},
+]
+description = "A collection of scripts to decode semantics from fMRI signal."
+readme = "README.md"
+keywords = ["brain decoding"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dynamic = ["version"]
+requires-python = ">=3.7"
+dependencies = []
+
+[tool.flake8]
+ignore = ["E203", "W503"]
+
+[tool.setuptools.dynamic]
+version = {attr = "fmri2frame.__version__"}

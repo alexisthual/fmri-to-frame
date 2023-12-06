@@ -1,0 +1,25 @@
+hydra:
+  run:
+    dir: ${paths.logs}/${now:%Y-%m-%d-%H-%M-%S}_${hydra.job.name}
+  sweep:
+    dir: ${paths.logs}/${now:%Y-%m-%d-%H-%M-%S}_${hydra.job.name}
+    subdir: ${now:%Y-%m-%d-%H-%M-%S}_${hydra.job.override_dirname}
+#   hydra_logging:
+#     formatters:
+#       simple:
+#         format: "[%(asctime)s][HYDRA] %(message)s"
+#   job_logging:
+#     formatters:
+#       simple:
+#         format: "[%(asctime)s][%(name)s][%(levelname)s]\n%(message)s"
+
+# Paths to outputs (logs, models)
+paths:
+  logs: /gpfsscratch/rech/nry/uul79xi/outputs/hydra-logs
+  latents: /gpfsscratch/rech/nry/uul79xi/outputs/latents
+
+# Paths to pre-trained models
+pretrained_models:
+  vdvae: /gpfsstore/rech/nry/uul79xi/data/vdvae
+  vd: /gpfsstore/rech/nry/uul79xi/data
+  sd: /gpfsstore/rech/nry/uul79xi/data/stable_diffusion

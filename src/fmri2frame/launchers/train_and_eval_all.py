@@ -1,0 +1,603 @@
+# %%
+import math
+import pickle
+from itertools import combinations, product
+from pathlib import Path
+from types import SimpleNamespace
+
+import hydra
+import numpy as np
+import omegaconf
+import submitit
+import torch
+from fugw.utils import load_mapping
+from hydra.core.hydra_config import HydraConfig
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import StandardScaler
+
+from fmri2frame.scripts.eval import compute_retrieval_metrics
+from fmri2frame.scripts.train import setup_xp
+from fmri2frame.scripts.utils import get_logger, monitor_jobs
+
+
+# %%
+def load_datamodule(subject, latent_type):
+    dataset_id = "ibc"
+    dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+    lag = 0
+    window_size = 1
+
+    pretrained_models = SimpleNamespace(
+        **{
+            "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
+            "vd": "/gpfsstore/rech/nry/uul79xi/data",
+            "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
+        }
+    )
+
+    return setup_xp(
+        dataset_id=dataset_id,
+        dataset_path=dataset_path,
+        subject=subject,
+        n_train_examples=325 * 12,
+        n_valid_examples=0,
+        n_test_examples=325 * 3,
+        pretrained_models_path=pretrained_models,
+        latent_types=[latent_type],
+        generation_seed=0,
+        batch_size=32,
+        window_size=window_size,
+        lag=lag,
+        agg="mean",
+        support="fsaverage5",
+        shuffle_labels=False,
+        cache="/gpfsscratch/rech/nry/uul79xi/fmri2frame/cache",
+    )
+
+
+def load_datamodules(latent_type):
+    return {subject: load_datamodule(subject, latent_type) for subject in all_subjects}
+
+
+# %%
+def project_data(
+    datamodules, source_subject, target_subject, p=1.0, tanh_scale=None, stage="train"
+):
+    mappings_path = Path(
+        "/gpfsscratch/rech/nry/uul79xi/outputs/_068_compute_all_nsd_alignments"
+    )
+    invert = False
+    left_mapping_path = (
+        mappings_path
+        / f"{source_subject}_{target_subject}_left_alpha-{alpha}_p-{p}_tanh-{tanh_scale}.pkl"
+    )
+    right_mapping_path = (
+        mappings_path
+        / f"{source_subject}_{target_subject}_right_alpha-{alpha}_p-{p}_tanh-{tanh_scale}.pkl"
+    )
+
+    if not left_mapping_path.exists():
+        invert = True
+        left_mapping_path = (
+            mappings_path
+            / f"{target_subject}_{source_subject}_left_alpha-{alpha}_p-{p}_tanh-{tanh_scale}.pkl"
+        )
+        right_mapping_path = (
+            mappings_path
+            / f"{target_subject}_{source_subject}_right_alpha-{alpha}_p-{p}_tanh-{tanh_scale}.pkl"
+        )
+
+        if not left_mapping_path.exists():
+            print(left_mapping_path)
+            print(right_mapping_path)
+            raise Exception(
+                f"There is no mapping between subjects {source_subject} and {target_subject}"
+            )
+
+    mapping_left = load_mapping(str(left_mapping_path))
+    mapping_right = load_mapping(str(right_mapping_path))
+
+    if stage == "train":
+        # Only transport sub-selection of training data
+        n_samples_total = len(datamodules[source_subject].train_data.betas)
+        n_samples = math.floor(n_samples_total * p)
+
+        if not invert:
+            transported_source_features_left = mapping_left.transform(
+                datamodules[source_subject].train_data.betas[:n_samples, :10242]
+            )
+            transported_source_features_right = mapping_right.transform(
+                datamodules[source_subject].train_data.betas[:n_samples, 10242:]
+            )
+        else:
+            transported_source_features_left = mapping_left.inverse_transform(
+                datamodules[source_subject].train_data.betas[:n_samples, :10242]
+            )
+            transported_source_features_right = mapping_right.inverse_transform(
+                datamodules[source_subject].train_data.betas[:n_samples, 10242:]
+            )
+    elif stage == "test":
+        # Transport all test data
+        if not invert:
+            transported_source_features_left = mapping_left.transform(
+                datamodules[source_subject].test_data.betas[:, :10242]
+            )
+            transported_source_features_right = mapping_right.transform(
+                datamodules[source_subject].test_data.betas[:, 10242:]
+            )
+        else:
+            transported_source_features_left = mapping_left.inverse_transform(
+                datamodules[source_subject].test_data.betas[:, :10242]
+            )
+            transported_source_features_right = mapping_right.inverse_transform(
+                datamodules[source_subject].test_data.betas[:, 10242:]
+            )
+
+    transported_source_features = np.concatenate(
+        [transported_source_features_left, transported_source_features_right],
+        axis=1,
+    )
+
+    return transported_source_features
+
+
+# %%
+def train_from_subjects(datamodules, latent_type, subjects):
+    print("train from subjects")
+    print(latent_type, subjects)
+    # if len(subjects) == 1:
+    #     ridge = load(
+    #         str(
+    #             pretrained_regressor_paths[1]
+    #             / "brain_to_latents.pkl"
+    #         )
+    #     )
+    # else:
+    ridge = Ridge(alpha=50000, fit_intercept=True)
+
+    ridge.fit(
+        # brain features
+        SimpleImputer().fit_transform(
+            StandardScaler().fit_transform(
+                np.concatenate(
+                    [datamodules[subject].train_data.betas for subject in subjects]
+                )
+            )
+        ),
+        # latent features
+        StandardScaler().fit_transform(
+            np.concatenate(
+                [
+                    datamodules[subject].train_data.labels[latent_type]
+                    for subject in subjects
+                ]
+            )
+        ),
+    )
+
+    return ridge
+
+
+# %%
+def train_from_aligned_subjects(
+    datamodules, latent_type, source_subjects, target_subject, p=1.0
+):
+    ridge = Ridge(alpha=50000, fit_intercept=True)
+
+    n_samples_total = len(datamodules[source_subjects[0]].train_data.betas)
+    n_samples = math.floor(n_samples_total * p)
+
+    ridge.fit(
+        # brain features
+        SimpleImputer().fit_transform(
+            StandardScaler().fit_transform(
+                np.concatenate(
+                    [
+                        *[
+                            project_data(
+                                datamodules,
+                                source_subject,
+                                target_subject,
+                                p=p,
+                                stage="train",
+                            )
+                            for source_subject in source_subjects
+                        ],
+                        datamodules[target_subject].train_data.betas,
+                    ]
+                )
+            )
+        ),
+        # latent features
+        StandardScaler().fit_transform(
+            np.concatenate(
+                [
+                    *[
+                        datamodules[source_subject].train_data.labels[latent_type][
+                            :n_samples
+                        ]
+                        for source_subject in source_subjects
+                    ],
+                    datamodules[target_subject].train_data.labels[latent_type],
+                ]
+            )
+        ),
+    )
+
+    return ridge
+
+
+# %%
+def retrieval_metrics(datamodules, predictions, subject, latent_type, seed=0):
+    generator = torch.Generator()
+    generator.manual_seed(seed)
+    n_retrieval_set = 500
+    retrieval_set_indices = torch.randperm(
+        datamodules[subject].test_data.betas.shape[0], generator=generator
+    )[: (min(n_retrieval_set, datamodules[subject].test_data.betas.shape[0]) - 1)]
+
+    scores = dict()
+
+    ground_truth = datamodules[subject].test_data.labels[latent_type]
+    negatives = datamodules[subject].test_data.labels[latent_type][
+        retrieval_set_indices
+    ]
+
+    retrieval_metrics = compute_retrieval_metrics(
+        predictions=torch.from_numpy(predictions).to(torch.float32),
+        ground_truth=torch.from_numpy(ground_truth).to(torch.float32),
+        negatives=torch.from_numpy(negatives).to(torch.float32),
+    )
+
+    scores.update({f"{latent_type}_{k}": v for k, v in retrieval_metrics.items()})
+
+    return scores
+
+
+# %%
+def evaluate_model(datamodules, model, latent_type, **kwargs):
+    all_scores = []
+
+    def data_projector(source_subject, target_subject, p):
+        return lambda: project_data(
+            datamodules,
+            source_subject,
+            target_subject,
+            p=p,
+            stage="test",
+        )
+
+    for subject, get_data in [
+        # unaligned test sets
+        *[
+            (s, lambda: datamodules[s].test_data.betas)
+            for s in all_subjects
+        ],
+        # (1, lambda: datamodules[1].test_data.betas),
+        # (2, lambda: datamodules[2].test_data.betas),
+        # (5, lambda: datamodules[5].test_data.betas),
+        # (7, lambda: datamodules[7].test_data.betas),
+        # aligned test sets
+        # *[
+        #     (
+        #         source_subject,
+        #         data_projector(source_subject, target_subject, p),
+        #     )
+        #     for source_subject in all_subjects
+        #     for target_subject in all_subjects
+        #     for p in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+        #     if source_subject != target_subject
+        # ],
+    ]:
+        print(f"evaluating for {subject}")
+        data = get_data()
+        data = SimpleImputer().fit_transform(data)
+
+        if isinstance(model, Ridge):
+            predictions = model.predict(data)
+        else:
+            predictions = model.predict(data, **kwargs)[latent_type]
+
+        seeded_scores = []
+        for seed in range(50):
+            scores = retrieval_metrics(
+                datamodules, predictions, subject, latent_type, seed=seed
+            )
+            seeded_scores.append(scores)
+
+        all_scores.append(seeded_scores)
+
+    return all_scores
+
+
+# %%
+def train_and_eval_unaligned(i, get_model, latent_type, force=True):
+    print("train_and_eval_unaligned", i, latent_type)
+
+    output_file = (
+        output_path
+        / f"seeded_scores_alpha-{alpha}_tanh-{tanh_scale}"
+        / f"scores_{latent_type}_unaligned_{i}.pkl"
+    )
+
+    if output_file.exists() and not force:
+        print(f"Skipping ({output_file} already exists)")
+        return
+
+    datamodules = load_datamodules(latent_type)
+    model = get_model(datamodules)
+
+    model_output_path = (
+        output_path
+        / f"seeded_scores_alpha-{alpha}_tanh-{tanh_scale}"
+        / f"model_{latent_type}_unaligned_{i}.pkl"
+    )
+
+    with open(model_output_path, "wb") as f:
+        pickle.dump(model, f)
+
+    if i == 5:
+        with open(output_path / f"group_model_{latent_type}.pkl", "wb") as f:
+            pickle.dump(model, f)
+
+    model_scores = evaluate_model(
+        datamodules, model, latent_type, normalize_latents=True
+    )
+
+    with open(output_file, "wb") as f:
+        pickle.dump(model_scores, f)
+
+
+def train_and_eval_aligned(i, get_model, latent_type, alpha, p, force=False):
+    print("train_and_eval_aligned", i, latent_type, alpha, p)
+
+    scores_output_path = (
+        output_path
+        / f"seeded_scores_alpha-{alpha}_tanh-{tanh_scale}"
+        / f"scores_{latent_type}_aligned_{p}_{i}.pkl"
+    )
+
+    if scores_output_path.exists() and not force:
+        print(f"Skipping ({scores_output_path} already exists)")
+        return
+
+    datamodules = load_datamodules(latent_type)
+    model = get_model(datamodules)
+
+    model_output_path = (
+        output_path
+        / f"seeded_scores_alpha-{alpha}_tanh-{tanh_scale}"
+        / f"model_{latent_type}_aligned_{p}_{i}.pkl"
+    )
+
+    with open(model_output_path, "wb") as f:
+        pickle.dump(model, f)
+
+    if i % 3 == 2 and p == 1.0:
+        with open(
+            output_path / f"group_model_aligned_{latent_type}_alpha-{alpha}_{p}.pkl",
+            "wb",
+        ) as f:
+            pickle.dump(model, f)
+
+    model_scores = evaluate_model(
+        datamodules, model, latent_type, normalize_latents=True
+    )
+
+    with open(scores_output_path, "wb") as f:
+        pickle.dump(model_scores, f)
+
+
+# %%
+@hydra.main(version_base="1.2", config_path="../conf", config_name="default")
+def launch_unaligned_eval(config):
+    """Train and evaluate unaligned models."""
+    # Load config
+    hydra_config = HydraConfig.get()
+    try:
+        logger = get_logger(
+            f"{hydra_config.job.id} {hydra_config.job.override_dirname}"
+        )
+    except omegaconf.errors.MissingMandatoryValue:
+        logger = get_logger(
+            f"{hydra_config.job.name} {hydra_config.job.override_dirname}"
+        )
+
+    executor = submitit.AutoExecutor(
+        folder=Path(hydra_config.runtime.output_dir) / "logs"
+    )
+    executor.update_parameters(
+        slurm_job_name="train_and_eval_unaligned",
+        # JZ config (clip_vision_cls, sd_autokl)
+        slurm_time="00:10:00",
+        # slurm_time="06:00:00",
+        slurm_account="nry@cpu",
+        slurm_partition="prepost",
+        cpus_per_task=2,
+        # cpus_per_task=12,
+        # JZ config (clip_vision_latents, versatile_diffusion)
+        # slurm_time="05:00:00",
+        # slurm_account="nry@cpu",
+        # slurm_partition="prepost",
+        # cpus_per_task=12,
+        # margaret config
+        # cpus_per_task=10,
+        # slurm_mem_per_gpu=30,
+        # slurm_partition="parietal",
+        # mem_gb=350,
+    )
+
+    def train_and_eval_unaligned_wrapper(args):
+        """Wrap plot_individual_surf to be used with submitit."""
+        (
+            latent_type,
+            (i, subjects),
+        ) = args
+
+        return train_and_eval_unaligned(
+            i,
+            # get_model(latent_type),
+            lambda datamodules: train_from_subjects(datamodules, latent_type, subjects),
+            latent_type,
+        )
+
+    unaligned_args_map = list(
+        product(
+            # latent type
+            [
+                "clip_vision_cls",
+                # "sd_autokl",
+                # "clip_vision_latents",
+                # "vdvae_encoder_31l_latents",
+            ],
+            # decoding subject
+            enumerate(combinations(all_subjects, 1)),
+            # unaligned models
+            #     [
+            #         lambda latent_type: (
+            #             lambda datamodules: train_from_subjects(
+            #                 datamodules, latent_type, subjects
+            #             )
+            #         )
+            #         # for n in range(len(all_subjects))
+            #         # for subjects in list(combinations(all_subjects, n + 1))
+            #         for subjects in list(combinations(all_subjects, 1))
+            #     ]
+            # ),
+        )
+    )
+
+    jobs_unaligned = executor.map_array(
+        train_and_eval_unaligned_wrapper, unaligned_args_map
+    )
+
+    monitor_jobs(jobs_unaligned, logger=logger, poll_frequency=120)
+
+    print("end launch_unaligned_eval")
+
+
+@hydra.main(version_base="1.2", config_path="./conf", config_name="default")
+def launch_aligned_eval(config):
+    """Train and evaluate aligned models."""
+    # Load config
+    hydra_config = HydraConfig.get()
+    try:
+        logger = get_logger(
+            f"{hydra_config.job.id} {hydra_config.job.override_dirname}"
+        )
+    except omegaconf.errors.MissingMandatoryValue:
+        logger = get_logger(
+            f"{hydra_config.job.name} {hydra_config.job.override_dirname}"
+        )
+
+    executor = submitit.AutoExecutor(
+        folder=Path(hydra_config.runtime.output_dir) / "logs"
+    )
+    executor.update_parameters(
+        slurm_job_name="train_and_eval_aligned",
+        # JZ config (clip_vision_cls, sd_autokl)
+        slurm_time="01:00:00",
+        slurm_account="nry@cpu",
+        slurm_partition="prepost",
+        cpus_per_task=6,
+        # JZ config (clip_vision_latents, versatile_diffusion)
+        # slurm_time="05:00:00",
+        # slurm_account="nry@cpu",
+        # slurm_partition="prepost",
+        # cpus_per_task=12,
+        # margaret config
+        # cpus_per_task=10,
+        # slurm_mem_per_gpu=30,
+        # slurm_partition="parietal",
+        # mem_gb=350,
+    )
+
+    def train_and_eval_aligned_wrapper(args):
+        """Wrap plot_individual_surf to be used with submitit."""
+        (
+            latent_type,
+            (i, (source_subject, target_subject)),
+            p,
+        ) = args
+
+        return train_and_eval_aligned(
+            i,
+            # get_model(latent_type, p),
+            lambda datamodules: train_from_aligned_subjects(
+                datamodules,
+                latent_type,
+                [source_subject],
+                target_subject,
+                p=p,
+            ),
+            latent_type,
+            alpha,
+            p,
+        )
+
+    # Generate all (source_subjects, target_subject) combinations
+    all_combinations = []
+
+    for r in all_subjects:
+        possible_source_subjects = [s for s in all_subjects if s != r]
+
+        source_subjects = []
+        for n in range(len(possible_source_subjects)):
+            source_subjects.extend(combinations(possible_source_subjects, n + 1))
+
+        all_combinations.extend([(s, r) for s in source_subjects])
+
+    aligned_args_map = list(
+        product(
+            # latent type
+            [
+                "clip_vision_cls",
+                # "sd_autokl",
+                # "clip_vision_latents",
+                # "vdvae_encoder_31l_latents",
+            ],
+            # (source_subject, target_subject)
+            enumerate(combinations(all_subjects, 2)),
+            # p
+            [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        )
+    )
+    jobs_aligned = executor.map_array(train_and_eval_aligned_wrapper, aligned_args_map)
+
+    monitor_jobs(jobs_aligned, logger=logger, poll_frequency=120)
+
+
+# %%
+if __name__ == "__main__":
+    all_subjects = [4, 6]
+
+    # pretrained_regressor_paths = {
+    #     1: Path(
+    #         "/data/parietal/store2/work/athual/brain-diffuser/experiments/xps/c7c9588c"
+    #     ),
+    #     2: Path(
+    #         "/data/parietal/store2/work/athual/brain-diffuser/experiments/xps/f5b450d2"
+    #     ),
+    #     5: Path(
+    #         "/data/parietal/store2/work/athual/brain-diffuser/experiments/xps/4b50a956"
+    #     ),
+    #     7: Path(
+    #         "/data/parietal/store2/work/athual/brain-diffuser/experiments/xps/4b50a956"
+    #     ),
+    # }
+
+    alpha = 0.5
+    rho = 1
+    eps = 1e-4
+    tanh_scale = None
+
+    output_path = Path("/gpfsscratch/rech/nry/uul79xi/outputs/test")
+    output_path.mkdir(exist_ok=True, parents=True)
+
+    (output_path / f"seeded_scores_alpha-{alpha}_tanh-{tanh_scale}").mkdir(
+        exist_ok=True, parents=True
+    )
+
+    launch_unaligned_eval()
+    # launch_aligned_eval()
