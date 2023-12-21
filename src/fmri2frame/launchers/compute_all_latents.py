@@ -22,7 +22,7 @@ def init_latent(latent_type, subject):
 
     print("init_latent", latent_type, subject)
 
-    dataset_id = "ibc"
+    dataset_id = "ibc_gbu"
     dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
 
     pretrained_models = SimpleNamespace(
@@ -61,6 +61,7 @@ def init_latent(latent_type, subject):
     )
 
     return latents
+
 
 # %%
 @hydra.main(version_base="1.2", config_path="../conf", config_name="default")
@@ -115,7 +116,7 @@ def launch_jobs(config):
             # latent type
             [
                 "clip_vision_cls",
-                "sd_autokl",
+                # "sd_autokl",
                 # "clip_vision_latents",
                 # "vdvae_encoder_31l_latents",
             ],

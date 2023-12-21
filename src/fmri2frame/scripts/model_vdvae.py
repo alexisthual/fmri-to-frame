@@ -13,12 +13,11 @@ from tqdm import tqdm, trange
 
 from fmri2frame.scripts.utils import convert_to_PIL
 
-# imported from openai/vdvae
+# Imported from openai/vdvae
 # https://github.com/openai/vdvae
 lib_path = Path("/gpfswork/rech/nry/uul79xi/repo/vdvae")
 assert lib_path.exists()
 sys.path.append(str(lib_path))
-# from train_helpers import restore_params
 from vae import VAE
 from utils import maybe_download
 

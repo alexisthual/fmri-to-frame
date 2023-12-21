@@ -190,7 +190,7 @@ def compute_clip_vision_latents(
 
 
 def load_versatile_diffusion_model(
-    pretrained_models_path: tp.Union[str, Path]
+    pretrained_models_path: tp.Union[str, Path],
 ) -> VersatileDiffusionModel:
     """Load Versatile diffusion."""
     logger.info("Loading VersatileDiffusion model...")
@@ -329,18 +329,30 @@ def extract_clip_vision_cls(
 
     model = model.to(device).float()
 
+    def process_frame(frame):
+        img = Image.fromarray(frame.astype(np.uint8))
+        res = image_processor(img, resolution=resolution, preprocess=clip_preprocess)
+        img = res["x_clip"].unsqueeze(0).to(device).float()
+
+        clip_latents = model.encode_image(img)
+        clip_latents /= clip_latents.norm(dim=-1, keepdim=True)
+
+        return clip_latents.squeeze(0).detach().cpu().numpy()
+
     for batch in tqdm(dataloader):
-        for im in batch:
-            img = Image.fromarray(im.numpy().astype(np.uint8))
-            res = image_processor(
-                img, resolution=resolution, preprocess=clip_preprocess
-            )
-            img = res["x_clip"].unsqueeze(0).to(device).float()
-
-            clip_latents = model.encode_image(img)
-            clip_latents /= clip_latents.norm(dim=-1, keepdim=True)
-
-            latents.append(clip_latents.squeeze(0).detach().cpu().numpy())
+        print(batch.shape)
+        if len(batch.shape) == 5:
+            for tr in batch:
+                print(tr.shape)
+                print(type(tr))
+                tr_latents = []
+                for frame in tr:
+                    tr_latents.append(process_frame(frame.numpy()))
+                # Compute average latent represention for each TR
+                latents.append(np.mean(np.stack(tr_latents), axis=0))
+        elif len(batch.shape) == 4:
+            for frame in batch:
+                latents.append(process_frame(frame.numpy()))
 
     if len(latents) > 0:
         # Concatenate batches

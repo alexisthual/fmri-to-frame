@@ -1,11 +1,12 @@
 import logging
 
+from fmri2frame.scripts.compute_latents import compute_latents
 from fmri2frame.scripts.data import (
     FmriDatasetBase,
     LatentsDataModuleBase,
     load_fmridataset,
 )
-from fmri2frame.scripts.compute_latents import compute_latents
+
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +69,6 @@ def setup_xp(
             "vdvae_encoder_31l_latents",
         ]:
             model_path = pretrained_models_path.vdvae
-        elif latent_type in ["internvideo_latents"]:
-            model_path = pretrained_models_path.iv
-        elif latent_type in [
-            "t5_embeds",
-            "autokl_central_latents",
-        ]:
-            model_path = pretrained_models_path.fair
         elif latent_type in ["clip_vision_cls"]:
             model_path = None
         elif latent_type in ["sd_autokl"]:

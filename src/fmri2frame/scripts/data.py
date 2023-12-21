@@ -105,9 +105,10 @@ class FmriDatasetBase(Dataset):
 
     def __len__(self):
         return len(self.betas)
+        # return len(self.labels)
 
 
-class IBCFmriDataset(FmriDatasetBase):
+class IBCClipsFmriDataset(FmriDatasetBase):
     """Torch Dataset for the fMRI Individual Brain Charting Dataset."""
 
     def __init__(self, data_path, subject):
@@ -116,9 +117,45 @@ class IBCFmriDataset(FmriDatasetBase):
         bolds_path = Path(data_path) / "clips" / "bolds" / f"sub-{subject:02d}.h5"
         self.brain_features = h5py.File(bolds_path, "r")["brain_features"][:]
 
-        images_path = Path(data_path) / "clips" / "stimuli" / "images.h5"
+        images_path = Path(data_path) / "clips" / "stimuli" / "images_nkeep-4.h5"
         self.labels = {
-            "images": h5py.File(images_path, "r")["images"][:],
+            "images": h5py.File(images_path, "r")["images"],
+        }
+
+        super().__init__(self.brain_features, self.labels)
+
+
+class IBCGBUFmriDataset(FmriDatasetBase):
+    """Torch Dataset for the fMRI Individual Brain Charting Dataset."""
+
+    def __init__(self, data_path, subject):
+        # Load BOLD maps.
+        # The underlying folder structure is specific to IBC
+        bolds_path = Path(data_path) / "gbu" / "bolds" / f"sub-{subject:02d}.h5"
+        self.brain_features = h5py.File(bolds_path, "r")["brain_features"][:]
+
+        images_path = Path(data_path) / "gbu" / "stimuli" / "images_nkeep-4.h5"
+        # images_path = Path(data_path) / "gbu" / "stimuli" / "images_test.h5"
+        self.labels = {
+            "images": h5py.File(images_path, "r")["images"],
+        }
+
+        super().__init__(self.brain_features, self.labels)
+
+
+class LeuvenGBUFmriDataset(FmriDatasetBase):
+    """Torch Dataset for the fMRI Individual Brain Charting Dataset."""
+
+    def __init__(self, data_path, subject):
+        # Load BOLD maps.
+        # The underlying folder structure is specific to IBC
+        bolds_path = Path(data_path) / "gbu" / "mion" / f"{subject}.h5"
+        self.brain_features = h5py.File(bolds_path, "r")["brain_features"][:]
+
+        # images_path = Path(data_path) / "gbu" / "stimuli" / "images_nkeep-4.h5"
+        images_path = Path(data_path) / "gbu" / "stimuli" / "images_test.h5"
+        self.labels = {
+            "images": h5py.File(images_path, "r")["images"],
         }
 
         super().__init__(self.brain_features, self.labels)
@@ -268,8 +305,12 @@ def load_fmridataset(
 ):
     """Load brain features and stimuli."""
     # Load brain features and stimuli features,
-    if dataset_id == "ibc":
-        fmri_dataset = IBCFmriDataset(subject=subject, data_path=dataset_path)
+    if dataset_id == "ibc_clips":
+        fmri_dataset = IBCClipsFmriDataset(subject=subject, data_path=dataset_path)
+    elif dataset_id == "ibc_gbu":
+        fmri_dataset = IBCGBUFmriDataset(subject=subject, data_path=dataset_path)
+    elif dataset_id == "leuven_gbu":
+        fmri_dataset = LeuvenGBUFmriDataset(subject=subject, data_path=dataset_path)
     elif dataset_id == "nsd":
         fmri_dataset = NSDFmriDataset(subject=subject, data_path=dataset_path)
     elif dataset_id == "nsd_unshared":

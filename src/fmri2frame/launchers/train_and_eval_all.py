@@ -17,7 +17,7 @@ from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 
 from fmri2frame.scripts.eval import compute_retrieval_metrics
-from fmri2frame.scripts.train import setup_xp
+from fmri2frame.scripts.setup_xp import setup_xp
 from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 
@@ -25,8 +25,8 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 def load_datamodule(subject, latent_type):
     dataset_id = "ibc"
     dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
-    lag = 0
-    window_size = 1
+    lag = 2
+    window_size = 2
 
     pretrained_models = SimpleNamespace(
         **{
@@ -268,12 +268,15 @@ def evaluate_model(datamodules, model, latent_type, **kwargs):
             stage="test",
         )
 
+    predictions_list = []
     for subject, get_data in [
         # unaligned test sets
-        *[
-            (s, lambda: datamodules[s].test_data.betas)
-            for s in all_subjects
-        ],
+        # *[
+        #     (s, lambda: datamodules[s].test_data.betas)
+        #     for s in all_subjects
+        # ],
+        (4, lambda: datamodules[4].test_data.betas),
+        (6, lambda: datamodules[6].test_data.betas),
         # (1, lambda: datamodules[1].test_data.betas),
         # (2, lambda: datamodules[2].test_data.betas),
         # (5, lambda: datamodules[5].test_data.betas),
@@ -299,6 +302,8 @@ def evaluate_model(datamodules, model, latent_type, **kwargs):
         else:
             predictions = model.predict(data, **kwargs)[latent_type]
 
+        predictions_list.append(predictions)
+
         seeded_scores = []
         for seed in range(50):
             scores = retrieval_metrics(
@@ -308,7 +313,7 @@ def evaluate_model(datamodules, model, latent_type, **kwargs):
 
         all_scores.append(seeded_scores)
 
-    return all_scores
+    return all_scores, predictions_list
 
 
 # %%
@@ -341,9 +346,18 @@ def train_and_eval_unaligned(i, get_model, latent_type, force=True):
         with open(output_path / f"group_model_{latent_type}.pkl", "wb") as f:
             pickle.dump(model, f)
 
-    model_scores = evaluate_model(
+    model_scores, all_predictions = evaluate_model(
         datamodules, model, latent_type, normalize_latents=True
     )
+
+    predictions_output_path = (
+        output_path
+        / f"seeded_scores_alpha-{alpha}_tanh-{tanh_scale}"
+        / f"predictions_{latent_type}_unaligned_{i}.pkl"
+    )
+
+    with open(predictions_output_path, "wb") as f:
+        pickle.dump(all_predictions, f)
 
     with open(output_file, "wb") as f:
         pickle.dump(model_scores, f)
