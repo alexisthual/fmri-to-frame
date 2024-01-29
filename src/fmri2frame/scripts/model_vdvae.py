@@ -15,7 +15,7 @@ from fmri2frame.scripts.utils import convert_to_PIL
 
 # Imported from openai/vdvae
 # https://github.com/openai/vdvae
-lib_path = Path("/gpfswork/rech/nry/uul79xi/repo/vdvae")
+lib_path = Path("/storage/store2/work/athual/repo/vdvae")
 assert lib_path.exists()
 sys.path.append(str(lib_path))
 from vae import VAE

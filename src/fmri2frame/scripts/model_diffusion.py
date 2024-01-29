@@ -12,7 +12,7 @@ from fmri2frame.scripts.utils import convert_to_PIL, regularize_image
 
 # Imported from Versatile-Diffusion
 # https://github.com/SHI-Labs/Versatile-Diffusion
-lib_path = Path("/gpfswork/rech/nry/uul79xi/repo/Versatile-Diffusion")
+lib_path = Path("/storage/store2/work/athual/repo/Versatile-Diffusion")
 assert lib_path.exists()
 sys.path.append(str(lib_path))
 from lib.cfg_helper import model_cfg_bank
@@ -40,7 +40,7 @@ class VersatileDiffusionModel:
         # )
         self.cfgm = model_cfg_bank(path)(cfgm_name)
         self.net = get_model()(self.cfgm)
-        self.sd = torch.load(Path(path) / "versatile_diffusion/pretrained/vd-four-flow-v1-0-fp16-deprecated.pth", map_location="cpu")
+        self.sd = torch.load(Path(path) / "pretrained/vd-four-flow-v1-0-fp16-deprecated.pth", map_location="cpu")
         self.net.load_state_dict(self.sd, strict=False)
 
         self.net.clip.cuda(0)

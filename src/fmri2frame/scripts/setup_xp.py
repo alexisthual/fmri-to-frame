@@ -22,7 +22,6 @@ def setup_xp(
     latent_types,
     generation_seed,
     batch_size=None,
-    session: int = None,
     shuffle_labels=None,
     cache=None,
     num_workers=0,
@@ -52,7 +51,6 @@ def setup_xp(
         dataset_id,
         dataset_path,
         subject,
-        session,
     )
 
     betas = fmri_dataset.betas
@@ -88,7 +86,6 @@ def setup_xp(
             seed=generation_seed,
             batch_size=batch_size,
             cache=cache,
-            session=session,
         )
 
         all_latents[latent_type] = latents
