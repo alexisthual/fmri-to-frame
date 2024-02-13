@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# coding: utf-8
+
 # %%
 import math
 import pickle
@@ -23,6 +26,7 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # %%
 def load_datamodule(subject, latent_type):
+    """Load a datamodule for a given subject and latent type."""
     dataset_id = "ibc"
     dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
     lag = 2
@@ -57,13 +61,23 @@ def load_datamodule(subject, latent_type):
 
 
 def load_datamodules(latent_type):
-    return {subject: load_datamodule(subject, latent_type) for subject in all_subjects}
+    """Load datamodules for all subjects of a given latent type."""
+    return {
+        subject: load_datamodule(subject, latent_type)
+        for subject in all_subjects
+    }
 
 
 # %%
 def project_data(
-    datamodules, source_subject, target_subject, p=1.0, tanh_scale=None, stage="train"
+    datamodules,
+    source_subject,
+    target_subject,
+    p=1.0,
+    tanh_scale=None,
+    stage="train",
 ):
+    """Project data from source to target subject."""
     mappings_path = Path(
         "/gpfsscratch/rech/nry/uul79xi/outputs/_068_compute_all_nsd_alignments"
     )
@@ -105,17 +119,27 @@ def project_data(
 
         if not invert:
             transported_source_features_left = mapping_left.transform(
-                datamodules[source_subject].train_data.betas[:n_samples, :10242]
+                datamodules[source_subject].train_data.betas[
+                    :n_samples, :10242
+                ]
             )
             transported_source_features_right = mapping_right.transform(
-                datamodules[source_subject].train_data.betas[:n_samples, 10242:]
+                datamodules[source_subject].train_data.betas[
+                    :n_samples, 10242:
+                ]
             )
         else:
             transported_source_features_left = mapping_left.inverse_transform(
-                datamodules[source_subject].train_data.betas[:n_samples, :10242]
+                datamodules[source_subject].train_data.betas[
+                    :n_samples, :10242
+                ]
             )
-            transported_source_features_right = mapping_right.inverse_transform(
-                datamodules[source_subject].train_data.betas[:n_samples, 10242:]
+            transported_source_features_right = (
+                mapping_right.inverse_transform(
+                    datamodules[source_subject].train_data.betas[
+                        :n_samples, 10242:
+                    ]
+                )
             )
     elif stage == "test":
         # Transport all test data
@@ -130,8 +154,10 @@ def project_data(
             transported_source_features_left = mapping_left.inverse_transform(
                 datamodules[source_subject].test_data.betas[:, :10242]
             )
-            transported_source_features_right = mapping_right.inverse_transform(
-                datamodules[source_subject].test_data.betas[:, 10242:]
+            transported_source_features_right = (
+                mapping_right.inverse_transform(
+                    datamodules[source_subject].test_data.betas[:, 10242:]
+                )
             )
 
     transported_source_features = np.concatenate(
@@ -161,7 +187,10 @@ def train_from_subjects(datamodules, latent_type, subjects):
         SimpleImputer().fit_transform(
             StandardScaler().fit_transform(
                 np.concatenate(
-                    [datamodules[subject].train_data.betas for subject in subjects]
+                    [
+                        datamodules[subject].train_data.betas
+                        for subject in subjects
+                    ]
                 )
             )
         ),
@@ -214,9 +243,9 @@ def train_from_aligned_subjects(
             np.concatenate(
                 [
                     *[
-                        datamodules[source_subject].train_data.labels[latent_type][
-                            :n_samples
-                        ]
+                        datamodules[source_subject].train_data.labels[
+                            latent_type
+                        ][:n_samples]
                         for source_subject in source_subjects
                     ],
                     datamodules[target_subject].train_data.labels[latent_type],
@@ -235,7 +264,12 @@ def retrieval_metrics(datamodules, predictions, subject, latent_type, seed=0):
     n_retrieval_set = 500
     retrieval_set_indices = torch.randperm(
         datamodules[subject].test_data.betas.shape[0], generator=generator
-    )[: (min(n_retrieval_set, datamodules[subject].test_data.betas.shape[0]) - 1)]
+    )[
+        : (
+            min(n_retrieval_set, datamodules[subject].test_data.betas.shape[0])
+            - 1
+        )
+    ]
 
     scores = dict()
 
@@ -250,7 +284,9 @@ def retrieval_metrics(datamodules, predictions, subject, latent_type, seed=0):
         negatives=torch.from_numpy(negatives).to(torch.float32),
     )
 
-    scores.update({f"{latent_type}_{k}": v for k, v in retrieval_metrics.items()})
+    scores.update(
+        {f"{latent_type}_{k}": v for k, v in retrieval_metrics.items()}
+    )
 
     return scores
 
@@ -390,7 +426,8 @@ def train_and_eval_aligned(i, get_model, latent_type, alpha, p, force=False):
 
     if i % 3 == 2 and p == 1.0:
         with open(
-            output_path / f"group_model_aligned_{latent_type}_alpha-{alpha}_{p}.pkl",
+            output_path
+            / f"group_model_aligned_{latent_type}_alpha-{alpha}_{p}.pkl",
             "wb",
         ) as f:
             pickle.dump(model, f)
@@ -452,7 +489,9 @@ def launch_unaligned_eval(config):
         return train_and_eval_unaligned(
             i,
             # get_model(latent_type),
-            lambda datamodules: train_from_subjects(datamodules, latent_type, subjects),
+            lambda datamodules: train_from_subjects(
+                datamodules, latent_type, subjects
+            ),
             latent_type,
         )
 
@@ -558,7 +597,9 @@ def launch_aligned_eval(config):
 
         source_subjects = []
         for n in range(len(possible_source_subjects)):
-            source_subjects.extend(combinations(possible_source_subjects, n + 1))
+            source_subjects.extend(
+                combinations(possible_source_subjects, n + 1)
+            )
 
         all_combinations.extend([(s, r) for s in source_subjects])
 
@@ -577,7 +618,9 @@ def launch_aligned_eval(config):
             [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         )
     )
-    jobs_aligned = executor.map_array(train_and_eval_aligned_wrapper, aligned_args_map)
+    jobs_aligned = executor.map_array(
+        train_and_eval_aligned_wrapper, aligned_args_map
+    )
 
     monitor_jobs(jobs_aligned, logger=logger, poll_frequency=120)
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""Compute and cache stimuli latent representations for a list of subjects."""
 
 # %%
 from itertools import product
@@ -16,22 +17,42 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 
 # %%
+pretrained_models = SimpleNamespace(
+    **{
+        "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
+        "vd": "/gpfsstore/rech/nry/uul79xi/data",
+        "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
+    }
+)
+
+seed = 0
+batch_size = 32
+cache = "/gpfsscratch/rech/nry/uul79xi/fmri2frame/cache"
+
+dataset_id = "ibc_gbu"
+dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+
+latent_types = [
+    "clip_vision_cls",
+    # "sd_autokl",
+    # "clip_vision_latents",
+    # "vdvae_encoder_31l_latents",
+]
+
+args_map = list(
+    product(
+        latent_types,
+        subjects,
+    )
+)
+
+
+# %%
 # Load brain features and latent representations
 def init_latent(latent_type, subject):
     """Load brain features and latent representations."""
-
     print("init_latent", latent_type, subject)
-
-    dataset_id = "ibc_gbu"
-    dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
-
-    pretrained_models = SimpleNamespace(
-        **{
-            "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
-            "vd": "/gpfsstore/rech/nry/uul79xi/data",
-            "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
-        }
-    )
 
     if latent_type in [
         "clip_vision_latents",
@@ -49,24 +70,34 @@ def init_latent(latent_type, subject):
     else:
         raise NotImplementedError()
 
-    latents, metadata = compute_latents(
+    latents, _ = compute_latents(
         dataset_id=dataset_id,
         dataset_path=dataset_path,
         subject=subject,
         latent_type=latent_type,
         model_path=model_path,
-        seed=0,
-        batch_size=32,
-        cache="/gpfsscratch/rech/nry/uul79xi/fmri2frame/cache",
+        seed=seed,
+        batch_size=batch_size,
+        cache=cache,
     )
 
     return latents
 
 
+def init_latent_wrapper(args):
+    """Wrap plot_individual_surf to be used with submitit."""
+    (latent_type, subject) = args
+
+    return init_latent(
+        latent_type,
+        subject,
+    )
+
+
 # %%
 @hydra.main(version_base="1.2", config_path="../conf", config_name="default")
 def launch_jobs(config):
-    """Launch computation of all alignments."""
+    """Launch computation of all latents."""
     # Load config
     hydra_config = HydraConfig.get()
     try:
@@ -78,6 +109,7 @@ def launch_jobs(config):
             f"{hydra_config.job.name} {hydra_config.job.override_dirname}"
         )
 
+    # Set up executor
     executor = submitit.AutoExecutor(
         folder=Path(hydra_config.runtime.output_dir) / "logs"
     )
@@ -102,31 +134,8 @@ def launch_jobs(config):
         # cpus_per_task=20,
     )
 
-    def init_latent_wrapper(args):
-        """Wrap plot_individual_surf to be used with submitit."""
-        (latent_type, subject) = args
-
-        return init_latent(
-            latent_type,
-            subject,
-        )
-
-    args_map = list(
-        product(
-            # latent type
-            [
-                "clip_vision_cls",
-                # "sd_autokl",
-                # "clip_vision_latents",
-                # "vdvae_encoder_31l_latents",
-            ],
-            # subject
-            [4, 6],
-        )
-    )
-
+    # Launch jobs
     jobs = executor.map_array(init_latent_wrapper, args_map)
-
     monitor_jobs(jobs, logger=logger, poll_frequency=120)
 
 

@@ -217,7 +217,7 @@ class IBCClipsSingleFmriDataset(FmriDatasetBase):
 class IBCClipsFmriDataset(FmriDatasetBase):
     """Torch Dataset for the fMRI Individual Brain Charting Dataset."""
 
-    def __init__(self, data_path, subject):
+    def __init__(self, data_path, subject, segment=None):
         # Load BOLD maps.
         # The underlying folder structure is specific to IBC
         bolds_path = (
@@ -231,6 +231,17 @@ class IBCClipsFmriDataset(FmriDatasetBase):
         self.labels = {
             "images": h5py.File(images_path, "r")["images"],
         }
+
+        if segment is not None:
+            segment_slices = {
+                "train": (0, 325 * 12),
+                "valid": (325 * 12, 325 * 12 + 325 * 3 * 3),
+            }
+            start_index, end_index = segment_slices[segment]
+            self.brain_features = self.brain_features[start_index:end_index]
+            self.labels["images"] = self.labels["images"][
+                start_index:end_index
+            ]
 
         super().__init__(self.brain_features, self.labels)
 
@@ -278,11 +289,20 @@ class IBCRaidersFmriDataset(FmriDatasetBase):
 class IBCMonkeyKingdomFmriDataset(FmriDatasetBase):
     """Torch Dataset for the fMRI Individual Brain Charting Dataset."""
 
-    def __init__(self, data_path, subject):
+    def __init__(self, data_path, subject, segment=None):
         # Load BOLD maps.
         # The underlying folder structure is specific to IBC
         bolds_path = Path(data_path) / "mk" / "bolds" / f"sub-{subject:02d}.h5"
         self.brain_features = h5py.File(bolds_path, "r")["brain_features"][:]
+
+        with open(
+            Path(data_path)
+            / "mk"
+            / "bolds"
+            / f"sub-{subject:02d}_config.yaml",
+            "r",
+        ) as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
 
         images_path = (
             Path(data_path)
@@ -290,9 +310,19 @@ class IBCMonkeyKingdomFmriDataset(FmriDatasetBase):
             / "stimuli"
             / f"images_sub-{subject:02d}_nkeep-4.h5"
         )
+        all_images = h5py.File(images_path, "r")["images"][:]
+        slices = generate_slices(config)
         self.labels = {
-            "images": h5py.File(images_path, "r")["images"],
+            "images": np.vstack(itemgetter(*slices)(all_images)),
         }
+
+        # Subselect segment if specified
+        if segment is not None:
+            start_index, end_index = slices[int(segment) - 1]
+            self.brain_features = self.brain_features[start_index:end_index]
+            self.labels["images"] = self.labels["images"][
+                start_index:end_index
+            ]
 
         super().__init__(self.brain_features, self.labels)
 
@@ -300,7 +330,7 @@ class IBCMonkeyKingdomFmriDataset(FmriDatasetBase):
 class IBCMonkeyKingdomMionFmriDataset(FmriDatasetBase):
     """Torch Dataset for the fMRI Individual Brain Charting Dataset."""
 
-    def __init__(self, data_path, subject):
+    def __init__(self, data_path, subject, segment=None):
         # Load BOLD maps.
         # The underlying folder structure is specific to IBC
         bolds_path = (
@@ -326,10 +356,16 @@ class IBCMonkeyKingdomMionFmriDataset(FmriDatasetBase):
         all_images = h5py.File(images_path, "r")["images"][:]
         slices = generate_slices(config)
         self.labels = {
-            "images": np.vstack(
-                itemgetter(*slices)(all_images)
-            ),
+            "images": np.vstack(itemgetter(*slices)(all_images)),
         }
+
+        # Subselect segment if specified
+        if segment is not None:
+            start_index, end_index = slices[int(segment) - 1]
+            self.brain_features = self.brain_features[start_index:end_index]
+            self.labels["images"] = self.labels["images"][
+                start_index:end_index
+            ]
 
         super().__init__(self.brain_features, self.labels)
 
@@ -564,13 +600,14 @@ def load_fmridataset(
 ):
     """Load brain features and stimuli."""
     # Load brain features and stimuli features,
-    if dataset_id == "ibc_clips":
-        dataset = IBCClipsFmriDataset(
+    if dataset_id == "ibc_clips_single":
+        dataset = IBCClipsSingleFmriDataset(
             subject=subject,
             data_path=dataset_path,
         )
-    elif dataset_id == "ibc_clips_single":
-        dataset = IBCClipsSingleFmriDataset(
+    elif dataset_id.startswith("ibc_clips"):
+        segment = re.search(r".*seg-([a-z]*).*", dataset_id).group(1)
+        dataset = IBCClipsFmriDataset(
             subject=subject,
             data_path=dataset_path,
         )
@@ -584,15 +621,19 @@ def load_fmridataset(
             subject=subject,
             data_path=dataset_path,
         )
-    elif dataset_id == "ibc_mk":
-        dataset = IBCMonkeyKingdomFmriDataset(
-            subject=subject,
-            data_path=dataset_path,
-        )
     elif dataset_id == "ibc_mk_mion":
+        segment = re.search(r".*seg-([0-9]*).*", dataset_id).group(1)
         dataset = IBCMonkeyKingdomMionFmriDataset(
             subject=subject,
             data_path=dataset_path,
+            segment=segment,
+        )
+    elif dataset_id == "ibc_mk":
+        segment = re.search(r".*seg-([0-9]*).*", dataset_id).group(1)
+        dataset = IBCMonkeyKingdomFmriDataset(
+            subject=subject,
+            data_path=dataset_path,
+            segment=segment,
         )
     elif dataset_id.startswith("leuven_gbu"):
         segment = re.search(r".*seg-([0-9]*).*", dataset_id).group(1)
