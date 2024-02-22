@@ -292,7 +292,7 @@ def train_single_subject_brain_decoder(
     wandb.login()
     run = wandb.init(
         project=f"inter-species-single-sub-{subject:02d}-sweep",
-        dir=Path("/storage/store2/work/athual/wandb"),
+        dir=Path("/gpfsscratch/rech/nry/uul79xi/wandb"),
         config={
             "out_dim": out_dim,
             "hidden_size_backbone": hidden_size_backbone,
