@@ -2,7 +2,6 @@
 # coding: utf-8
 
 # %%
-from itertools import product
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,22 +10,20 @@ import omegaconf
 import submitit
 from hydra.core.hydra_config import HydraConfig
 
-from fmri2frame.scripts.brain_decoder_linear import train_multi_subject_brain_decoder
+from fmri2frame.scripts.brain_decoder_contrastive import (
+    train_single_subject_brain_decoder,
+)
 from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 
 # %%
 # Experiment parameters
 
-# 1. Train brain decoders on individual IBC subjects on clips-train
+# 1. Sweep model parameters on one subject from the IBC dataset using Clips stimuli
 
-subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-dataset_ids = [
-    "ibc_clips_seg-train",
-    "ibc_clips_seg-valid",
-    "ibc_mk_seg-1",
-    "ibc_mk_seg-2",
-]
+subject = 5
+train_dataset_ids = ["ibc_clips_seg-train"]
+valid_dataset_ids = ["ibc_clips_seg-valid"]
 dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
 
 lag = 2
@@ -41,51 +38,60 @@ pretrained_models = SimpleNamespace(
 )
 cache = "/gpfsscratch/rech/nry/uul79xi/cache"
 
-latent_types = [
-    "clip_vision_cls",
-    # "sd_autokl",
-    # "clip_vision_latents",
-    # "vdvae_encoder_31l_latents",
-]
+latent_type = "clip_vision_latents"
 
-args_map = list(
-    product(
-        subjects,
-        latent_types,
-    )
-)
+# Baseline configuration
+baseline_config = {
+    "hidden_size_backbone": 512,
+    "hidden_size_projector": 512,
+    "dropout": 0.3,
+    "n_res_blocks": 2,
+    "n_proj_blocks": 1,
+    "temperature": 0.01,
+    "batch_size": 128,
+    "lr": 1e-4,
+    "weight_decay": 0,
+    "n_epochs": 20,
+}
 
-exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
-# alignments_path = exps_path / "alignments" / "clips-train_mm"
-alignments_path = exps_path / "alignments" / "clips-train-valid_mk-1-2_mm"
-# output_path = exps_path / "decoders_multi-subject" / "clips-train"
-output_path = (
-    exps_path
-    / "decoders_multi-subject"
-    / "clips-train-valid_mk-1-2"
-    / "clips-train-valid_mk-1-2_mm"
-)
-output_path.mkdir(parents=True, exist_ok=True)
+# Possible fine-tuned values
+finetuned_values = {
+    "hidden_size_backbone": [256, 1024],
+    "hidden_size_projector": [256, 1024],
+    "dropout": [0.0, 0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+    "n_res_blocks": [0, 1, 3],
+    "n_proj_blocks": [0, 2],
+    "temperature": [1.0, 0.1, 0.001, 0.0001],
+    "batch_size": [32, 64, 128, 256, 512, 1024],
+    "lr": [1e-3, 1e-4, 1e-5],
+    "weight_decay": [1e-1, 1e-2, 1e-3, 1e-4],
+}
+
+# Launch 1 job with baseline config
+# and then jobs for which the value of only one parameter has changed
+args_map = [{}] + [{k: v} for k, values in finetuned_values.items() for v in values]
+args_map = args_map[:2]
 
 
 # %%
 def train_brain_decoder_wrapper(args):
     """Train decoder in one individual."""
-    reference_subject, latent_type = args
-    print(f"Train decoder {reference_subject} {latent_type}")
+    finetuned_config = args
+    print(f"Train decoder {subject} {latent_type} {finetuned_config}")
 
-    train_multi_subject_brain_decoder(
-        dataset_ids=dataset_ids,
+    train_single_subject_brain_decoder(
+        train_dataset_ids=train_dataset_ids,
+        valid_dataset_ids=valid_dataset_ids,
         dataset_path=dataset_path,
-        reference_subject=reference_subject,
-        training_subjects=subjects,
+        subject=subject,
         lag=lag,
         window_size=window_size,
         latent_type=latent_type,
         pretrained_models_path=pretrained_models,
         cache=cache,
-        alignments_path=alignments_path,
-        output_path=output_path / f"sub-{reference_subject:02d}_{latent_type}.pkl",
+        # model + training parameters
+        **baseline_config,
+        **finetuned_config,
     )
 
 
@@ -110,15 +116,11 @@ def launch_jobs(config):
     )
     executor.update_parameters(
         slurm_job_name="train_decoder",
-        slurm_time="02:00:00",
-        # JZ config
-        # slurm_account="nry@cpu",
-        # # slurm_partition="prepost",
-        # slurm_partition="cpu_p1",
-        # cpus_per_task=10,
+        slurm_time="00:20:00",
+        # Jean Zay cluster config
         slurm_account="nry@v100",
         slurm_partition="gpu_p13",
-        cpus_per_task=20,
+        cpus_per_task=10,
         gpus_per_node=1,
     )
 

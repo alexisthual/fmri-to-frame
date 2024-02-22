@@ -11,7 +11,7 @@ import omegaconf
 import submitit
 from hydra.core.hydra_config import HydraConfig
 
-from fmri2frame.scripts.train_brain_decoder import train_single_subject_brain_decoder
+from fmri2frame.scripts.brain_decoder_linear import train_single_subject_brain_decoder
 from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 

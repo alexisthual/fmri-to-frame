@@ -21,6 +21,8 @@ def train_single_subject_brain_decoder(
     pretrained_models_path=None,
     cache=None,
     output_path=None,
+    # model parameters
+    ridge_alpha=50000,
 ):
     """Train brain decoder in one participant."""
     # Load data
@@ -49,7 +51,7 @@ def train_single_subject_brain_decoder(
         latent_features.append(datamodule.train_data.labels[latent_type])
 
     # Fit model
-    ridge = Ridge(alpha=50000, fit_intercept=True)
+    ridge = Ridge(alpha=ridge_alpha, fit_intercept=True)
     ridge.fit(
         SimpleImputer().fit_transform(
             StandardScaler().fit_transform(np.concatenate(brain_features))
@@ -74,6 +76,8 @@ def train_multi_subject_brain_decoder(
     cache=None,
     alignments_path=None,
     output_path=None,
+    # model parameters
+    ridge_alpha=50000,
 ):
     """Train brain decoder in one participant."""
     # Load data
@@ -155,7 +159,7 @@ def train_multi_subject_brain_decoder(
             latent_features_all.append(datamodule.train_data.labels[latent_type])
 
     # Fit model
-    ridge = Ridge(alpha=50000, fit_intercept=True)
+    ridge = Ridge(alpha=ridge_alpha, fit_intercept=True)
     ridge.fit(
         SimpleImputer().fit_transform(
             StandardScaler().fit_transform(np.concatenate(brain_features_all))
