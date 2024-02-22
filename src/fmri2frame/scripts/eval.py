@@ -73,6 +73,7 @@ def compute_retrieval_metrics(
     negatives: torch.Tensor,
     should_plot: bool = False,
     return_scores: bool = False,
+    top_k=[1, 5, 10],
 ) -> dict:
     """Compute retrieval metrics."""
     # Compute score between predictions and ground truth latents: size (b,)
@@ -125,7 +126,7 @@ def compute_retrieval_metrics(
     outputs.update({"relative_median_rank": relative_median_rank.item()})
 
     # n-way top-k accuracies
-    for k in [1, 5, 10]:
+    for k in top_k:
         # It can be that the current batch is smaller than k,
         # in which case topk would raise an error.
         min_k = min(k, all_scores.shape[1])

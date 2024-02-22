@@ -575,7 +575,8 @@ def load_fmridataset(
             data_path=dataset_path,
         )
     elif dataset_id.startswith("ibc_clips"):
-        segment = re.search(r".*seg-([a-z]*).*", dataset_id).group(1)
+        search = re.search(r".*seg-([a-z]*).*", dataset_id)
+        segment = search.group(1) if search else None
         dataset = IBCClipsFmriDataset(
             subject=subject,
             data_path=dataset_path,
@@ -591,29 +592,33 @@ def load_fmridataset(
             subject=subject,
             data_path=dataset_path,
         )
-    # elif dataset_id == "ibc_mk_mion":
-    #     segment = re.search(r".*seg-([0-9]*).*", dataset_id).group(1)
+    # elif dataset_id.startswith("ibc_mk_mion"):
+    #     search = re.search(r".*seg-([0-9]*).*", dataset_id)
+    #     segment = search.group(1) if search else None
     #     dataset = IBCMonkeyKingdomMionFmriDataset(
     #         subject=subject,
     #         data_path=dataset_path,
     #         segment=segment,
     #     )
     elif dataset_id.startswith("ibc_mk"):
-        segment = re.search(r".*seg-([0-9]*).*", dataset_id).group(1)
+        search = re.search(r".*seg-([0-9]*).*", dataset_id)
+        segment = search.group(1) if search else None
         dataset = IBCMonkeyKingdomFmriDataset(
             subject=subject,
             data_path=dataset_path,
             segment=segment,
         )
     elif dataset_id.startswith("leuven_gbu"):
-        segment = re.search(r".*seg-([0-9]*).*", dataset_id).group(1)
+        search = re.search(r".*seg-([0-9]*).*", dataset_id)
+        segment = search.group(1) if search else None
         dataset = LeuvenGBUFmriDataset(
             subject=subject,
             data_path=dataset_path,
             segment=segment,
         )
     elif dataset_id.startswith("leuven_mk"):
-        segment = re.search(r".*seg-([0-9]*).*", dataset_id).group(1)
+        search = re.search(r".*seg-([0-9]*).*", dataset_id)
+        segment = search.group(1) if search else None
         dataset = LeuvenMonkeyKingdomFmriDataset(
             subject=subject,
             data_path=dataset_path,
