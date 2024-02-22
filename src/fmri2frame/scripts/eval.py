@@ -1,7 +1,15 @@
+import pickle
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from fugw.utils import load_mapping
 from scipy.linalg import norm
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+
+from fmri2frame.scripts.compute_alignment import get_n_vertices_left
+from fmri2frame.scripts.setup_xp import setup_xp
 
 
 def pearson_r(a, b):
@@ -54,9 +62,7 @@ def pearson_r(a, b):
     normxm = norm(xm, axis=1)
     normym = norm(ym, axis=1)
 
-    r = np.sum(
-        (xm / normxm[:, np.newaxis]) * (ym / normym[:, np.newaxis]), axis=1
-    )
+    r = np.sum((xm / normxm[:, np.newaxis]) * (ym / normym[:, np.newaxis]), axis=1)
 
     return r
 
@@ -85,9 +91,7 @@ def compute_retrieval_metrics(
         inv_norms_ground_truth,
     )
     # Compute score between predictions and other latents: size (b, n)
-    inv_norms_negatives = 1 / (
-        1e-16 + negatives.to(torch.float32).norm(dim=1, p=2)
-    )
+    inv_norms_negatives = 1 / (1e-16 + negatives.to(torch.float32).norm(dim=1, p=2))
     scores_to_others = torch.einsum(
         "sn,tn,t->st",
         predictions.to(torch.float32),
@@ -132,3 +136,140 @@ def compute_retrieval_metrics(
         outputs.update({"scores": all_scores})
 
     return outputs
+
+
+def evaluate_brain_decoder(
+    decoder_path=None,
+    dataset_ids=None,
+    dataset_path=None,
+    subject=None,
+    subject_is_macaque=False,
+    lag=0,
+    window_size=1,
+    latent_type=None,
+    pretrained_models_path=None,
+    cache=None,
+    left_mapping_path=None,
+    right_mapping_path=None,
+    invert_mapping=False,
+    selected_indices_left_path=None,
+    selected_indices_right_path=None,
+    output_name=None,
+    output_path=None,
+):
+    """Evaluate brain decoder."""
+    # Load model
+    with open(decoder_path, "rb") as f:
+        ridge = pickle.load(f)
+
+    # Load brain features
+    brain_features = []
+    latent_features = []
+    for dataset_id in dataset_ids:
+        print(dataset_id, dataset_path, subject, latent_type, cache)
+        datamodule = setup_xp(
+            dataset_id=dataset_id,
+            dataset_path=dataset_path,
+            subject=subject,
+            n_train_examples=None,
+            n_valid_examples=None,
+            n_test_examples=None,
+            pretrained_models_path=pretrained_models_path,
+            latent_types=[latent_type],
+            generation_seed=0,
+            batch_size=32,
+            window_size=window_size,
+            lag=lag,
+            agg="mean",
+            support="fsaverage5",
+            shuffle_labels=False,
+            cache=cache,
+        )
+        brain_features.append(datamodule.train_data.betas)
+        latent_features.append(datamodule.train_data.labels[latent_type])
+
+    brain_features = np.concatenate(brain_features)
+    latent_features = np.concatenate(latent_features)
+
+    # Sub-sample brain features
+    if (
+        selected_indices_left_path is not None
+        and selected_indices_right_path is not None
+    ):
+        with open(selected_indices_left_path, "rb") as f:
+            selected_indices_left = np.load(f)
+
+        with open(selected_indices_right_path, "rb") as f:
+            selected_indices_right = np.load(f)
+
+        n_vertices_left = get_n_vertices_left(subject)
+        brain_features_left = brain_features[:, selected_indices_left]
+        brain_features_right = brain_features[
+            :, n_vertices_left + selected_indices_right
+        ]
+    else:
+        brain_features_left = brain_features[:, :10242]
+        brain_features_right = brain_features[:, 10242:]
+
+    # Align brain features
+    if left_mapping_path is not None and right_mapping_path is not None:
+        left_mapping = load_mapping(left_mapping_path)
+        right_mapping = load_mapping(right_mapping_path)
+
+        if not invert_mapping:
+            brain_features = np.concatenate(
+                [
+                    left_mapping.transform(brain_features_left),
+                    right_mapping.transform(brain_features_right),
+                ],
+                axis=1,
+            )
+        else:
+            brain_features = np.concatenate(
+                [
+                    left_mapping.inverse_transform(brain_features_left),
+                    right_mapping.inverse_transform(brain_features_right),
+                ],
+                axis=1,
+            )
+
+    # Take opposite of brain features when subject is macaque
+    # because they were scanned using MION instead of BOLD
+    if subject_is_macaque:
+        brain_features = -1 * brain_features
+
+    # Predict latents
+    predictions = ridge.predict(
+        SimpleImputer().fit_transform(StandardScaler().fit_transform(brain_features))
+    )
+
+    # Generate retrieval set
+    generator = torch.Generator()
+    generator.manual_seed(0)
+    n_retrieval_set = 500
+    retrieval_set_indices = torch.randperm(
+        brain_features.shape[0], generator=generator
+    )[: (min(n_retrieval_set, brain_features.shape[0]) - 1)]
+
+    ground_truth = latent_features
+    negatives = latent_features[retrieval_set_indices]
+
+    # Evaluate
+    retrieval_metrics = compute_retrieval_metrics(
+        predictions=torch.from_numpy(predictions).to(torch.float32),
+        ground_truth=torch.from_numpy(ground_truth).to(torch.float32),
+        negatives=torch.from_numpy(negatives).to(torch.float32),
+        return_scores=True,
+    )
+
+    # Store results
+    with open(output_path / f"{output_name}_predictions.pkl", "wb") as f:
+        pickle.dump(predictions, f)
+
+    with open(output_path / f"{output_name}_scores.pkl", "wb") as f:
+        pickle.dump(retrieval_metrics["scores"], f)
+
+    del retrieval_metrics["scores"]
+
+    with open(output_path / f"{output_name}_metrics.pkl", "wb") as f:
+        pickle.dump(retrieval_metrics, f)

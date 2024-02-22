@@ -27,9 +27,18 @@ pretrained_models = SimpleNamespace(
 
 seed = 0
 batch_size = 32
-cache = "/gpfsscratch/rech/nry/uul79xi/fmri2frame/cache"
+cache = "/gpfsscratch/rech/nry/uul79xi/cache"
 
-dataset_id = "ibc_gbu"
+# 1. Human subjects
+
+# dataset_ids = ["ibc_clips_seg-train", "ibc_clips_seg-valid"]
+dataset_ids = [
+    "ibc_mk_seg-1",
+    "ibc_mk_seg-2",
+    "ibc_mk_seg-3",
+    "ibc_mk_seg-4",
+    "ibc_mk_seg-5",
+]
 dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
 subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 
@@ -42,17 +51,46 @@ latent_types = [
 
 args_map = list(
     product(
+        dataset_ids,
         latent_types,
         subjects,
     )
 )
 
 
+# 2. Non-human subjects
+
+# dataset_ids = [
+#     "leuven_mk_seg-1",
+#     "leuven_mk_seg-2",
+#     "leuven_mk_seg-3",
+#     "leuven_mk_seg-4",
+#     "leuven_mk_seg-5",
+# ]
+# dataset_path = "/gpfsstore/rech/nry/uul79xi/data/leuven"
+# subjects = ["Luce", "Jack"]
+
+# latent_types = [
+#     "clip_vision_cls",
+#     # "sd_autokl",
+#     # "clip_vision_latents",
+#     # "vdvae_encoder_31l_latents",
+# ]
+
+# args_map = list(
+#     product(
+#         dataset_ids,
+#         latent_types,
+#         subjects,
+#     )
+# )
+
+
 # %%
 # Load brain features and latent representations
-def init_latent(latent_type, subject):
+def init_latent(dataset_id, latent_type, subject):
     """Load brain features and latent representations."""
-    print("init_latent", latent_type, subject)
+    print("init_latent", dataset_id, latent_type, subject)
 
     if latent_type in [
         "clip_vision_latents",
@@ -86,9 +124,10 @@ def init_latent(latent_type, subject):
 
 def init_latent_wrapper(args):
     """Wrap plot_individual_surf to be used with submitit."""
-    (latent_type, subject) = args
+    (dataset_id, latent_type, subject) = args
 
     return init_latent(
+        dataset_id,
         latent_type,
         subject,
     )
@@ -118,7 +157,7 @@ def launch_jobs(config):
         # slurm_partition="parietal,gpu",
         # slurm_partition="gpu",
         slurm_job_name="init_latent",
-        slurm_time="01:00:00",
+        slurm_time="00:40:00",
         # JZ config for computing latents (clip_vision_cls, sd_autokl)
         slurm_account="nry@v100",
         slurm_partition="gpu_p13",

@@ -12,7 +12,8 @@ from fmri2frame.scripts.utils import convert_to_PIL, regularize_image
 
 # Imported from Versatile-Diffusion
 # https://github.com/SHI-Labs/Versatile-Diffusion
-lib_path = Path("/storage/store2/work/athual/repo/Versatile-Diffusion")
+# lib_path = Path("/storage/store2/work/athual/repo/Versatile-Diffusion")
+lib_path = Path("/gpfswork/rech/nry/uul79xi/repo/Versatile-Diffusion")
 assert lib_path.exists()
 sys.path.append(str(lib_path))
 from lib.cfg_helper import model_cfg_bank

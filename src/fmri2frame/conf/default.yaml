@@ -15,7 +15,7 @@ hydra:
 
 # Paths to outputs (logs, models)
 paths:
-  logs: /gpfsscratch/rech/nry/uul79xi/outputs/hydra-logs
+  logs: /gpfsscratch/rech/nry/uul79xi/hydra-logs
   latents: /gpfsscratch/rech/nry/uul79xi/outputs/latents
 
 # Paths to pre-trained models

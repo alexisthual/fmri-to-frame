@@ -68,6 +68,8 @@ def compute_latents(
     else:
         compute_specific_latents_fn = compute_specific_latents
 
+    print(dataset_id, dataset_path, subject, model_path, seed)
+
     latents, metadata = compute_specific_latents_fn(
         dataset_id,
         dataset_path,
