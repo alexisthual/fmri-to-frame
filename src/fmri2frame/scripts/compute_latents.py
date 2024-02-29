@@ -4,6 +4,7 @@ import typing as tp
 from pathlib import Path
 
 import clip
+import kornia
 import numpy as np
 import PIL
 import torch
@@ -46,7 +47,13 @@ def compute_latents(
     batch_size=32,
     cache=None,
 ):
-    """Compute latent representations of stimuli."""
+    """Compute latent representations of stimuli.
+
+    Returns
+    -------
+    latents : np.ndarray of shape (n_samples, latents_dim)
+        Latent representations of stimuli.
+    """
     if latent_type == "vdvae_encoder_31l_latents":
         compute_specific_latents = compute_vae_latents
     elif latent_type == "clip_vision_latents":
@@ -77,7 +84,78 @@ def compute_latents(
         model_path=model_path,
         seed=seed,
         batch_size=batch_size,
+        n_augmentations=1,
     )
+
+    # Squeeze latents if necessary
+    if (
+        len(latents.shape) == 3
+    ):  # shape (n_samples, n_augmentations, latents_dim)
+        latents = latents.squeeze(-2)
+    elif len(latents.shape) == 2:
+        pass
+
+    return latents, metadata
+
+
+def compute_augmented_latents(
+    dataset_id,
+    dataset_path,
+    subject,
+    latent_type,
+    model_path=None,
+    seed=0,
+    batch_size=32,
+    n_augmentations=1,
+    cache=None,
+):
+    """Compute latent representations of stimuli with augmentations.
+
+    Returns
+    -------
+    latents : np.ndarray of shape (n_samples, n_augmentations, latents_dim)
+        Latent representations of stimuli.
+    """
+    if latent_type == "vdvae_encoder_31l_latents":
+        compute_specific_latents = compute_vae_latents
+    elif latent_type == "clip_vision_latents":
+        compute_specific_latents = compute_clip_vision_latents
+    elif latent_type == "clip_text_latents":
+        compute_specific_latents = compute_clip_text_latents
+    elif latent_type == "clip_vision_cls":
+        compute_specific_latents = compute_clip_vision_cls
+    elif latent_type == "sd_autokl":
+        compute_specific_latents = compute_sd_autokl
+    else:
+        raise NotImplementedError()
+
+    if cache is not None:
+        memory = Memory(cache, verbose=100)
+        compute_specific_latents_fn = memory.cache(
+            compute_specific_latents, ignore=["batch_size"]
+        )
+    else:
+        compute_specific_latents_fn = compute_specific_latents
+
+    print(dataset_id, dataset_path, subject, model_path, seed)
+
+    latents, metadata = compute_specific_latents_fn(
+        dataset_id,
+        dataset_path,
+        subject,
+        model_path=model_path,
+        seed=seed,
+        batch_size=batch_size,
+        n_augmentations=n_augmentations,
+    )
+
+    # Unsqueeze latents if necessary
+    if (
+        len(latents.shape) == 3
+    ):  # shape (n_samples, n_augmentations, latents_dim)
+        pass
+    elif len(latents.shape) == 2:
+        latents = latents[:, None, :]
 
     return latents, metadata
 
@@ -92,6 +170,7 @@ def compute_vae_latents(
     model_path=None,
     seed=0,
     batch_size=32,
+    n_augmentations=1,
 ):
     torch.manual_seed(seed)
 
@@ -109,7 +188,12 @@ def compute_vae_latents(
         collate_fn=get_collate_fn(stimulus_key),
     )
 
-    latents = extract_vae_latents(dataloader, model, seed)
+    latents = extract_vae_latents(
+        dataloader,
+        model,
+        seed,
+        n_augmentations=n_augmentations,
+    )
     metadata = None
 
     return latents, metadata
@@ -126,6 +210,7 @@ def extract_vae_latents(
     dataloader: torch.utils.data.DataLoader,
     vae: VdvaeModel,
     seed: int = 0,
+    n_augmentations=1,
 ) -> np.ndarray:
     """Compute VAE latent representations for each stimulus."""
     torch.manual_seed(seed)
@@ -135,13 +220,17 @@ def extract_vae_latents(
     for batch in tqdm(dataloader):
         if len(batch.shape) == 5:
             for tr in batch:
-                tr_images_for_vdvae = torch.stack(VdvaeModel.prepare_images(tr))
+                tr_images_for_vdvae = torch.stack(
+                    VdvaeModel.prepare_images(tr)
+                )
                 tr_vdvae_latents = vae.get_vdvae_latent(tr_images_for_vdvae)
                 vdvae_encoder_31l_latents.append(
                     np.mean(tr_vdvae_latents.cpu().numpy(), axis=0)
                 )
         elif len(batch.shape) == 4:
-            batch_images_for_vdvae = torch.stack(VdvaeModel.prepare_images(batch))
+            batch_images_for_vdvae = torch.stack(
+                VdvaeModel.prepare_images(batch)
+            )
             batch_vdvae_latents = vae.get_vdvae_latent(batch_images_for_vdvae)
             vdvae_encoder_31l_latents.extend(batch_vdvae_latents.cpu().numpy())
 
@@ -153,7 +242,9 @@ def extract_vae_latents(
 
         # Flatten latents for each sample
         n_samples = vdvae_encoder_31l_latents.shape[0]
-        vdvae_encoder_31l_latents = vdvae_encoder_31l_latents.reshape(n_samples, -1)
+        vdvae_encoder_31l_latents = vdvae_encoder_31l_latents.reshape(
+            n_samples, -1
+        )
 
     return vdvae_encoder_31l_latents
 
@@ -168,6 +259,7 @@ def compute_clip_vision_latents(
     model_path=None,
     seed=0,
     batch_size=32,
+    n_augmentations=1,
 ):
     torch.manual_seed(seed)
 
@@ -185,7 +277,12 @@ def compute_clip_vision_latents(
         collate_fn=get_collate_fn(stimulus_key),
     )
 
-    latents = extract_clip_vision_latents(dataloader, model, seed)
+    latents = extract_clip_vision_latents(
+        dataloader,
+        model,
+        seed,
+        n_augmentations=n_augmentations,
+    )
     metadata = None
 
     return latents, metadata
@@ -204,6 +301,7 @@ def extract_clip_vision_latents(
     dataloader: torch.utils.data.DataLoader,
     diffusion: VersatileDiffusionModel,
     generation_seed: int,
+    n_augmentations: int = 1,
 ) -> np.ndarray:
     """Compute VAE latent representations for each stimulus."""
     torch.manual_seed(generation_seed)
@@ -224,14 +322,18 @@ def extract_clip_vision_latents(
                     )
 
                     tr_latents.append(frame_latents)
-                clip_vision_latents.append(np.mean(np.stack(tr_latents), axis=0))
+                clip_vision_latents.append(
+                    np.mean(np.stack(tr_latents), axis=0)
+                )
         elif len(batch.shape) == 4:
             for frame in batch:
                 batch_images_for_clip = torch.stack(
                     VersatileDiffusionModel.prepare_images([frame])
                 )
                 batch_clip_vision_latents = (
-                    diffusion.get_clip_image(batch_images_for_clip).cpu().numpy()
+                    diffusion.get_clip_image(batch_images_for_clip)
+                    .cpu()
+                    .numpy()
                 )
                 clip_vision_latents.append(batch_clip_vision_latents)
 
@@ -255,6 +357,7 @@ def compute_clip_text_latents(
     model_path=None,
     seed=0,
     batch_size=32,
+    n_augmentations=1,
 ):
     torch.manual_seed(seed)
 
@@ -268,7 +371,12 @@ def compute_clip_text_latents(
         collate_fn=get_collate_fn(stimulus_key),
     )
 
-    latents = extract_clip_text_latents(dataloader, model, seed)
+    latents = extract_clip_text_latents(
+        dataloader,
+        model,
+        seed,
+        n_augmentations=n_augmentations,
+    )
     metadata = None
 
     return latents, metadata
@@ -278,6 +386,7 @@ def extract_clip_text_latents(
     dataloader: torch.utils.data.DataLoader,
     diffusion: VersatileDiffusionModel,
     generation_seed: int,
+    n_augmentations: int = 1,
 ) -> np.ndarray:
     """Compute VAE latent representations for each stimulus."""
     torch.manual_seed(generation_seed)
@@ -311,6 +420,7 @@ def compute_clip_vision_cls(
     model_path=None,
     seed=0,
     batch_size=32,
+    n_augmentations=1,
 ):
     torch.manual_seed(seed)
 
@@ -333,6 +443,7 @@ def compute_clip_vision_cls(
         dataloader,
         model,
         clip_preprocess,
+        n_augmentations=n_augmentations,
     )
     metadata = None
 
@@ -344,30 +455,77 @@ def extract_clip_vision_cls(
     dataloader: torch.utils.data.DataLoader,
     model,
     clip_preprocess,
-    resolution: int = 256,
+    n_augmentations: int = 1,
     device: str = "cuda",
 ) -> np.ndarray:
-    """Compute Clip vision CLS latents."""
+    """Compute Clip vision CLS latents.
+
+    Parameters
+    ----------
+    dataloader : torch.utils.data.DataLoader
+        Dataloader of stimuli.
+    model : any
+        Clip model.
+    clip_preprocess : any
+        Clip preprocess.
+    n_augmentations : int, optional
+        Number of image augmentations generated, by default 1.
+    device : str, optional
+        Device, by default "cuda".
+
+    Returns
+    -------
+    np.ndarray of shape (n_samples, n_augmentations, latents_dim)
+        Clip vision CLS latents.
+    """
     latents = []
 
     model = model.to(device).float()
 
-    def process_frame(frame):
-        img = Image.fromarray(frame.astype(np.uint8))
-        res = image_processor(img, resolution=resolution, preprocess=clip_preprocess)
-        img = res["x_clip"].unsqueeze(0).to(device).float()
+    def process_frame(frame, n_augmentations=1):
+        """Process frame to compute CLIP latents.
 
-        clip_latents = model.encode_image(img)
-        clip_latents /= clip_latents.norm(dim=-1, keepdim=True)
+        Parameters
+        ----------
+        frame : np.ndarray of shape (H, W, C)
+            Frame pixel values, between 0 and 255.
+        n_augmentations : int, optional
+            Number of augmentations, by default 1.
 
-        return clip_latents.squeeze(0).detach().cpu().numpy()
+        Returns
+        -------
+        np.ndarray of shape (n_augmentations, latents_dim)
+            CLIP latents.
+        """
+        img = frame.astype(np.uint8)
+        all_clip_latents = []
+
+        for _ in range(n_augmentations):
+            # Augment frame before CLIP pre-processing
+            img = Image.fromarray(augment_image(frame))
+            img = clip_preprocess(img).unsqueeze(0).to(device)
+
+            # Compute CLIP latent representation
+            clip_latents = model.encode_image(img)
+            clip_latents /= clip_latents.norm(dim=-1, keepdim=True)
+            all_clip_latents.append(
+                clip_latents.squeeze(0).detach().cpu().numpy()
+            )
+
+        all_clip_latents = np.stack(all_clip_latents)
+
+        return all_clip_latents
 
     for batch in tqdm(dataloader):
         if len(batch.shape) == 5:
             for tr in batch:
                 tr_latents = []
                 for frame in tr:
-                    tr_latents.append(process_frame(frame.numpy()))
+                    tr_latents.append(
+                        process_frame(
+                            frame.numpy(), n_augmentations=n_augmentations
+                        )
+                    )
                 # Compute average latent represention for each TR
                 latents.append(np.mean(np.stack(tr_latents), axis=0))
         elif len(batch.shape) == 4:
@@ -391,6 +549,7 @@ def compute_sd_autokl(
     model_path=None,
     seed=0,
     batch_size=32,
+    n_augmentations=1,
 ):
     torch.manual_seed(seed)
 
@@ -409,7 +568,12 @@ def compute_sd_autokl(
         collate_fn=get_collate_fn(stimulus_key),
     )
 
-    latents = extract_sd_autokl(dataloader, model, clip_preprocess)
+    latents = extract_sd_autokl(
+        dataloader,
+        model,
+        clip_preprocess,
+        n_augmentations=n_augmentations,
+    )
     metadata = None
 
     return latents, metadata
@@ -422,7 +586,9 @@ def load_stablediffusion_model(
     logger.info("Loading stable-diffusion model...")
 
     p = Path(pretrained_models_path)
-    model = instantiate_from_config(OmegaConf.load(p / "v1-inference.yaml").model)
+    model = instantiate_from_config(
+        OmegaConf.load(p / "v1-inference.yaml").model
+    )
     model.load_state_dict(
         torch.load(p / "sd-v1-3.ckpt", map_location="cpu")["state_dict"],
         strict=False,
@@ -437,6 +603,7 @@ def extract_sd_autokl(
     model,
     clip_preprocess,
     resolution: int = 256,
+    n_augmentations=1,
     device: str = "cuda",
 ) -> np.ndarray:
     """Compute stable diffusion autokl latents."""
@@ -484,6 +651,24 @@ def extract_sd_autokl(
         latents = latents.reshape(n_samples, -1)
 
     return latents
+
+
+def augment_image(img):
+    """Augment an image using Kornia."""
+    aug_list = kornia.augmentation.container.AugmentationSequential(
+        kornia.augmentation.RandomResizedCrop((224, 224), (0.8, 0.8), p=0.8),
+        kornia.augmentation.Resize((224, 224)),
+        kornia.augmentation.ColorJiggle(
+            brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.8
+        ),
+        kornia.augmentation.RandomGaussianBlur((3, 3), (0.5, 0.5), p=0.8),
+        data_keys=["input"],
+    )
+    augmented_image = aug_list(torch.from_numpy(img / 255).permute(2, 0, 1))
+    augmented_image = (
+        augmented_image[0].permute(1, 2, 0).numpy() * 255
+    ).astype(np.uint8)
+    return augmented_image
 
 
 def image_processor(
