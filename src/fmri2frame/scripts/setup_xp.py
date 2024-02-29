@@ -1,6 +1,9 @@
 import logging
 
-from fmri2frame.scripts.compute_latents import compute_latents
+from fmri2frame.scripts.compute_latents import (
+    compute_latents,
+    compute_augmented_latents,
+)
 from fmri2frame.scripts.data import (
     FmriDatasetBase,
     LatentsDataModuleBase,
@@ -20,7 +23,8 @@ def setup_xp(
     n_test_examples,
     pretrained_models_path,
     latent_types,
-    generation_seed,
+    generation_seed=0,
+    n_augmentations=None,
     batch_size=None,
     shuffle_labels=None,
     cache=None,
@@ -72,16 +76,29 @@ def setup_xp(
         # This function uses joblib's cache internally.
         # Changing its arguments will invalidate already cached results,
         # so one should refrain from adding / removing args of this function.
-        latents, metadata = compute_latents(
-            dataset_id,
-            dataset_path,
-            subject,
-            latent_type,
-            model_path=model_path,
-            seed=generation_seed,
-            batch_size=batch_size,
-            cache=cache,
-        )
+        if n_augmentations is None:
+            latents, metadata = compute_latents(
+                dataset_id,
+                dataset_path,
+                subject,
+                latent_type,
+                model_path=model_path,
+                seed=generation_seed,
+                batch_size=batch_size,
+                cache=cache,
+            )
+        else:
+            latents, metadata = compute_augmented_latents(
+                dataset_id,
+                dataset_path,
+                subject,
+                latent_type,
+                model_path=model_path,
+                seed=generation_seed,
+                batch_size=batch_size,
+                n_augmentations=n_augmentations,
+                cache=cache,
+            )
 
         all_latents[latent_type] = latents
 
