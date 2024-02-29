@@ -2,7 +2,6 @@ import re
 import typing as tp
 from dataclasses import dataclass, field
 from functools import partial
-from operator import itemgetter
 from pathlib import Path
 
 import h5py
@@ -295,10 +294,18 @@ class IBCMonkeyKingdomFmriDataset(FmriDatasetBase):
 
         # Subselect segment if specified
         if segment is not None:
+            # Number of TRs to discard at the beginning of the run
+            # (because these TRs show frames from the previous movie segment)
+            seg_offset = 15
+
             slices = generate_slices(config, n_discard=0)
             start_index, end_index = slices[int(segment) - 1]
-            self.brain_features = self.brain_features[start_index:end_index]
-            self.labels["images"] = self.labels["images"][start_index:end_index]
+            self.brain_features = self.brain_features[start_index:end_index][
+                seg_offset:
+            ]
+            self.labels["images"] = self.labels["images"][start_index:end_index][
+                seg_offset:
+            ]
 
         super().__init__(self.brain_features, self.labels)
 
@@ -383,13 +390,17 @@ class LeuvenMonkeyKingdomFmriDataset(FmriDatasetBase):
     """Torch Dataset for the fMRI Leuven Monkey Kingdom data."""
 
     def __init__(self, data_path, subject, segment=None):
+        # Number of TRs to discard at the beginning of the run
+        # (because these TRs show frames from the previous movie segment)
+        seg_offset = 15
+
         # Load MION maps.
         # The underlying folder structure is specific to Leuven
         if segment is None or segment == "":
             bolds_path = Path(data_path) / "mk" / "mion" / f"{subject}.h5"
         else:
             bolds_path = Path(data_path) / "mk" / "mion" / f"{subject}_seg-{segment}.h5"
-        self.brain_features = h5py.File(bolds_path, "r")["brain_features"][:]
+        self.brain_features = h5py.File(bolds_path, "r")["brain_features"][seg_offset:]
 
         # These files are from the IBC dataset
         images_path = Path(data_path) / "mk" / "stimuli" / "images_nkeep-4.h5"
@@ -399,7 +410,7 @@ class LeuvenMonkeyKingdomFmriDataset(FmriDatasetBase):
         self.labels = {
             "images": h5py.File(images_path, "r")["images"][
                 start_index : start_index + seg_length
-            ],
+            ][seg_offset:],
         }
 
         super().__init__(self.brain_features, self.labels)

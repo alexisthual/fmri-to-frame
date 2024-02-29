@@ -22,15 +22,16 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 # dataset_ids = ["ibc_clips_seg-valid"]
-# dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 # lag = 2
 # window_size = 2
 
 # pretrained_models = SimpleNamespace(
 #     **{
-#         "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
-#         "vd": "/gpfsstore/rech/nry/uul79xi/data",
-#         "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
+#         "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+#         "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
+#         "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
+#         "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
 #     }
 # )
 # cache = "/gpfsscratch/rech/nry/uul79xi/cache"
@@ -76,7 +77,7 @@ human_dataset_ids = [
     "ibc_mk_seg-4",
     # "ibc_mk_seg-5",
 ]
-human_dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+human_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 human_lag = 2
 human_window_size = 2
 
@@ -86,15 +87,16 @@ macaque_dataset_ids = [
     "leuven_mk_seg-4",
     # "leuven_mk_seg-5",
 ]
-macaque_dataset_path = "/gpfsstore/rech/nry/uul79xi/data/leuven"
+macaque_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
 macaque_lag = 2
 macaque_window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
-        "vd": "/gpfsstore/rech/nry/uul79xi/data",
-        "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
+        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
+        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
+        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
+        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
     }
 )
 cache = "/gpfsscratch/rech/nry/uul79xi/cache"

@@ -18,45 +18,7 @@ fsaverage_geometry_path = Path(
 macaque_geometry_path = Path(
     "/gpfsstore/rech/nry/uul79xi/outputs/_197_leuven_geometries"
 )
-macaque_surfaces_path = Path("/gpfsstore/rech/nry/uul79xi/data/leuven/Surfaces")
-
-
-def get_alignment_path(source_subject, target_subject, alignments_path=None):
-    exp_name = f"sub-{source_subject:02d}_sub-{target_subject:02d}"
-    exp_name_invert = f"sub-{target_subject:02d}_sub-{source_subject:02d}"
-
-    invert_mapping = None
-    left_mapping_path = None
-    right_mapping_path = None
-
-    if source_subject != target_subject:
-        invert_mapping = False
-        left_mapping_path = alignments_path / f"{exp_name}_left.pkl"
-        right_mapping_path = alignments_path / f"{exp_name}_right.pkl"
-
-        if not left_mapping_path.exists():
-            invert_mapping = True
-            left_mapping_path = alignments_path / f"{exp_name_invert}_left.pkl"
-            right_mapping_path = alignments_path / f"{exp_name_invert}_right.pkl"
-            if leftout_is_macaque:
-                selected_indices_left_path = (
-                    alignments_path
-                    / f"{exp_name_invert}_selected_indices_left_source.npy"
-                )
-                selected_indices_right_path = (
-                    alignments_path
-                    / f"{exp_name_invert}_selected_indices_right_source.npy"
-                )
-
-            if not left_mapping_path.exists():
-                print(left_mapping_path)
-                print(right_mapping_path)
-                raise Exception(
-                    "There is no mapping between subjects "
-                    f"{source_subject} and {target_subject}"
-                )
-
-    return invert_mapping, left_mapping_path, right_mapping_path
+macaque_surfaces_path = Path("/gpfsstore/rech/nry/uul79xi/datasets/leuven/Surfaces")
 
 
 def get_n_vertices_left(subject):

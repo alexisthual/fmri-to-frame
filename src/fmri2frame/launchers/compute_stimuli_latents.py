@@ -19,9 +19,10 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 # %%
 pretrained_models = SimpleNamespace(
     **{
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
-        "vd": "/gpfsstore/rech/nry/uul79xi/data",
-        "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
+        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
+        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
+        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
+        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
     }
 )
 
@@ -32,43 +33,17 @@ cache = "/gpfsscratch/rech/nry/uul79xi/cache"
 # 1. Human subjects
 
 # dataset_ids = ["ibc_clips_seg-train", "ibc_clips_seg-valid"]
-dataset_ids = [
-    "ibc_mk_seg-1",
-    "ibc_mk_seg-2",
-    "ibc_mk_seg-3",
-    "ibc_mk_seg-4",
-    "ibc_mk_seg-5",
-]
-dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
-subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-
-latent_types = [
-    "clip_vision_cls",
-    # "sd_autokl",
-    # "clip_vision_latents",
-    # "vdvae_encoder_31l_latents",
-]
-
-args_map = list(
-    product(
-        dataset_ids,
-        latent_types,
-        subjects,
-    )
-)
-
-
-# 2. Non-human subjects
-
 # dataset_ids = [
-#     "leuven_mk_seg-1",
-#     "leuven_mk_seg-2",
-#     "leuven_mk_seg-3",
-#     "leuven_mk_seg-4",
-#     "leuven_mk_seg-5",
+#     "ibc_clips_seg-train",
+#     "ibc_clips_seg-valid",
+#     "ibc_mk_seg-1",
+#     "ibc_mk_seg-2",
+#     "ibc_mk_seg-3",
+#     "ibc_mk_seg-4",
+#     "ibc_mk_seg-5",
 # ]
-# dataset_path = "/gpfsstore/rech/nry/uul79xi/data/leuven"
-# subjects = ["Luce", "Jack"]
+# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+# subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 
 # latent_types = [
 #     "clip_vision_cls",
@@ -86,23 +61,46 @@ args_map = list(
 # )
 
 
+# 2. Non-human subjects
+
+dataset_ids = [
+    "leuven_mk_seg-1",
+    "leuven_mk_seg-2",
+    "leuven_mk_seg-3",
+    "leuven_mk_seg-4",
+    "leuven_mk_seg-5",
+]
+dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
+subjects = ["Luce", "Jack"]
+
+latent_types = [
+    "clip_vision_cls",
+    # "sd_autokl",
+    "clip_vision_latents",
+    # "vdvae_encoder_31l_latents",
+]
+
+args_map = list(
+    product(
+        dataset_ids,
+        latent_types,
+        subjects,
+    )
+)
+
+
 # %%
 # Load brain features and latent representations
 def init_latent(dataset_id, latent_type, subject):
     """Load brain features and latent representations."""
     print("init_latent", dataset_id, latent_type, subject)
 
-    if latent_type in [
-        "clip_vision_latents",
-        "clip_text_latents",
-    ]:
+    if latent_type in ["clip_vision_latents", "clip_text_latents"]:
         model_path = pretrained_models.vd
-    elif latent_type in [
-        "vdvae_encoder_31l_latents",
-    ]:
+    elif latent_type in ["vdvae_encoder_31l_latents"]:
         model_path = pretrained_models.vdvae
     elif latent_type in ["clip_vision_cls"]:
-        model_path = None
+        model_path = pretrained_models.clip
     elif latent_type in ["sd_autokl"]:
         model_path = pretrained_models.sd
     else:
@@ -157,17 +155,18 @@ def launch_jobs(config):
         # slurm_partition="parietal,gpu",
         # slurm_partition="gpu",
         slurm_job_name="init_latent",
-        slurm_time="00:40:00",
         # JZ config for computing latents (clip_vision_cls, sd_autokl)
+        # slurm_time="00:40:00",
+        # slurm_account="nry@v100",
+        # slurm_partition="gpu_p13",
+        # cpus_per_task=10,
+        # gpus_per_node=2,
+        # JZ config for computing latents (clip_vision_latents, vdvae)
+        slurm_time="00:40:00",
         slurm_account="nry@v100",
         slurm_partition="gpu_p13",
-        cpus_per_task=10,
+        cpus_per_task=40,
         gpus_per_node=2,
-        # JZ config for computing latents (clip_vision_latents, vdvae)
-        # slurm_account="nry@v100",
-        # slurm_partition="gpu_p4",
-        # cpus_per_task=40,
-        # gpus_per_node=2,
         # JZ config for saving precomputed latents
         # slurm_account="nry@cpu",
         # cpus_per_task=20,

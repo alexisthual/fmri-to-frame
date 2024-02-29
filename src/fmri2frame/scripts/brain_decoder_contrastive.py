@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import wandb
+from fugw.utils import load_mapping
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
@@ -224,18 +225,13 @@ def mixco_sample_augmentation(samples, beta=0.15, s_thresh=0.5):
     return samples, perm, betas, select
 
 
-# %%
-def train_single_subject_brain_decoder(
-    train_dataset_ids=None,
-    valid_dataset_ids=None,
-    dataset_path=None,
-    subject=None,
-    lag=0,
-    window_size=1,
-    latent_type=None,
-    pretrained_models_path=None,
-    cache=None,
-    output_path=None,
+def train_decoder(
+    brain_features_train,
+    latent_features_train,
+    brain_features_valid,
+    latent_features_valid,
+    wandb_project=None,
+    wandb_tags=[],
     # model + training parameters
     hidden_size_backbone=512,
     hidden_size_projector=512,
@@ -247,52 +243,18 @@ def train_single_subject_brain_decoder(
     lr=1e-4,
     weight_decay=0,
     n_epochs=50,
+    checkpoints_path=None,
+    seed=0,
 ):
-    # Load training and validation data
-    brain_features_train = []
-    latent_features_train = []
-    brain_features_valid = []
-    latent_features_valid = []
-
-    for i, dataset_id in enumerate(train_dataset_ids + valid_dataset_ids):
-        datamodule = setup_xp(
-            dataset_id=dataset_id,
-            dataset_path=dataset_path,
-            subject=subject,
-            n_train_examples=None,
-            n_valid_examples=None,
-            n_test_examples=None,
-            pretrained_models_path=pretrained_models_path,
-            latent_types=[latent_type],
-            generation_seed=0,
-            batch_size=32,
-            window_size=window_size,
-            lag=lag,
-            agg="mean",
-            support="fsaverage5",
-            shuffle_labels=False,
-            cache=cache,
-        )
-        if i < len(train_dataset_ids):
-            brain_features_train.append(datamodule.train_data.betas)
-            latent_features_train.append(datamodule.train_data.labels[latent_type])
-        else:
-            brain_features_valid.append(datamodule.train_data.betas)
-            latent_features_valid.append(datamodule.train_data.labels[latent_type])
-
-    brain_features_train = np.concatenate(brain_features_train)
-    latent_features_train = np.concatenate(latent_features_train)
-    brain_features_valid = np.concatenate(brain_features_valid)
-    latent_features_valid = np.concatenate(latent_features_valid)
-
     device = torch.device("cuda")
     out_dim = latent_features_train.shape[1]
 
     # WandB setup
     wandb.login()
     run = wandb.init(
-        project=f"inter-species-single-sub-{subject:02d}-sweep",
-        dir=Path("/gpfsscratch/rech/nry/uul79xi/wandb"),
+        project=wandb_project,
+        tags=wandb_tags,
+        dir=Path("/gpfsscratch/rech/nry/uul79xi"),
         config={
             "out_dim": out_dim,
             "hidden_size_backbone": hidden_size_backbone,
@@ -304,6 +266,7 @@ def train_single_subject_brain_decoder(
             "weight_decay": weight_decay,
             "batch_size": batch_size,
             "temperature": temperature,
+            "n_epochs": n_epochs,
         },
         save_code=True,
     )
@@ -379,9 +342,10 @@ def train_single_subject_brain_decoder(
     val_topk_acc = defaultdict(list)
 
     negatives = torch.from_numpy(latent_features_valid).to(device)
+    run.config.update({"n_retrieval_set": len(negatives)})
 
     torch.autograd.set_detect_anomaly(True)
-    for _ in tqdm(range(n_epochs)):
+    for current_epoch in tqdm(range(n_epochs)):
         # Training step
         brain_decoder.train()
         for train_i, (brain_features, latent_features) in enumerate(train_dl):
@@ -512,14 +476,15 @@ def train_single_subject_brain_decoder(
                     )
                     epoch_val_mixco_losses.append(mixco_loss.item())
 
+        # Log training metrics
         val_mixco_losses.append(epoch_val_mixco_losses)
         val_symm_nce_losses.append(epoch_val_symm_nce_losses)
         val_median_rank.append(epoch_median_rank)
         for k in top_k:
             val_topk_acc[k].append(epoch_topk_acc[k])
 
-        run.config.update({"n_epochs": len(val_mixco_losses)})
-        run.config.update({"n_retrieval_set": len(negatives)})
+        run.config.update({"n_epochs": len(val_mixco_losses)}, allow_val_change=True)
+        run.config.update({"n_epochs": len(val_mixco_losses)}, allow_val_change=True)
 
         wandb.log(
             {
@@ -535,3 +500,332 @@ def train_single_subject_brain_decoder(
                 **{f"val/top-{k}_acc": np.mean(val_topk_acc[k][-1]) for k in top_k},
             }
         )
+
+        # Save checkpoint
+        if checkpoints_path is not None:
+            torch.save(
+                {
+                    "epoch": current_epoch,
+                    "model_state_dict": brain_decoder.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    # "train/mixco_loss": np.mean(train_mixco_losses, axis=1),
+                    # "train/symm_nce_loss": np.mean(train_symm_nce_losses, axis=1),
+                    # "train/lr": lrs,
+                    # "val/mixco_loss": np.mean(val_mixco_losses, axis=1),
+                    # "val/symm_nce_loss": np.mean(val_symm_nce_losses, axis=1),
+                    # "val/median_rank": np.mean(val_median_rank, axis=1),
+                },
+                Path(checkpoints_path) / f"checkpoint_{current_epoch:03d}.pt",
+            )
+
+    wandb.finish()
+
+
+# %%
+def train_single_subject_brain_decoder(
+    train_dataset_ids=None,
+    valid_dataset_ids=None,
+    dataset_path=None,
+    subject=None,
+    lag=0,
+    window_size=1,
+    latent_type=None,
+    pretrained_models_path=None,
+    cache=None,
+    output_path=None,
+    # model + training parameters
+    wandb_project_postfix=None,
+    wandb_tags=None,
+    hidden_size_backbone=512,
+    hidden_size_projector=512,
+    dropout=0.3,
+    n_res_blocks=2,
+    n_proj_blocks=1,
+    temperature=0.01,
+    batch_size=128,
+    lr=1e-4,
+    weight_decay=0,
+    n_epochs=50,
+    checkpoints_path=None,
+):
+    # Load training and validation data
+    brain_features_train = []
+    latent_features_train = []
+    brain_features_valid = []
+    latent_features_valid = []
+
+    for i, dataset_id in enumerate(train_dataset_ids + valid_dataset_ids):
+        datamodule = setup_xp(
+            dataset_id=dataset_id,
+            dataset_path=dataset_path,
+            subject=subject,
+            n_train_examples=None,
+            n_valid_examples=None,
+            n_test_examples=None,
+            pretrained_models_path=pretrained_models_path,
+            latent_types=[latent_type],
+            generation_seed=0,
+            batch_size=32,
+            window_size=window_size,
+            lag=lag,
+            agg="mean",
+            support="fsaverage5",
+            shuffle_labels=False,
+            cache=cache,
+        )
+        if i < len(train_dataset_ids):
+            brain_features_train.append(datamodule.train_data.betas)
+            latent_features_train.append(datamodule.train_data.labels[latent_type])
+        else:
+            brain_features_valid.append(datamodule.train_data.betas)
+            latent_features_valid.append(datamodule.train_data.labels[latent_type])
+
+    brain_features_train = np.concatenate(brain_features_train)
+    latent_features_train = np.concatenate(latent_features_train)
+    brain_features_valid = np.concatenate(brain_features_valid)
+    latent_features_valid = np.concatenate(latent_features_valid)
+
+    train_decoder(
+        brain_features_train,
+        latent_features_train,
+        brain_features_valid,
+        latent_features_valid,
+        wandb_project=(
+            f"inter-species-sweep-single-{latent_type}-sub-{subject:02d}"
+            f"_{wandb_project_postfix}" if wandb_project_postfix is not None else ""
+        ),
+        wandb_tags=wandb_tags,
+        # model + training parameters
+        hidden_size_backbone=hidden_size_backbone,
+        hidden_size_projector=hidden_size_projector,
+        dropout=dropout,
+        n_res_blocks=n_res_blocks,
+        n_proj_blocks=n_proj_blocks,
+        temperature=temperature,
+        batch_size=batch_size,
+        lr=lr,
+        weight_decay=weight_decay,
+        n_epochs=n_epochs,
+        checkpoints_path=checkpoints_path,
+    )
+
+
+# %%
+def train_multi_subject_brain_decoder(
+    reference_subject=None,
+    alignments_path=None,
+    align=True,
+    train_dataset_ids=None,
+    train_subjects=None,
+    valid_dataset_ids=None,
+    valid_subject=None,
+    dataset_path=None,
+    lag=0,
+    window_size=1,
+    latent_type=None,
+    pretrained_models_path=None,
+    cache=None,
+    output_path=None,
+    # model + training parameters
+    wandb_project_postfix=None,
+    wandb_tags=None,
+    hidden_size_backbone=512,
+    hidden_size_projector=512,
+    dropout=0.3,
+    n_res_blocks=2,
+    n_proj_blocks=1,
+    temperature=0.01,
+    batch_size=128,
+    lr=1e-4,
+    weight_decay=0,
+    n_epochs=50,
+    checkpoints_path=None,
+):
+    # Load training data
+    brain_features_train = []
+    latent_features_train = []
+
+    for subject in train_subjects:
+        invert_mapping = None
+        left_mapping_path = None
+        right_mapping_path = None
+
+        exp_name = f"sub-{subject:02d}_sub-{reference_subject:02d}"
+        exp_name_invert = f"sub-{reference_subject:02d}_sub-{subject:02d}"
+
+        # Load pre-computed fugw mappings
+        if subject != reference_subject and align:
+            invert_mapping = False
+            left_mapping_path = alignments_path / f"{exp_name}_left.pkl"
+            right_mapping_path = alignments_path / f"{exp_name}_right.pkl"
+
+            if not left_mapping_path.exists():
+                invert_mapping = True
+                left_mapping_path = alignments_path / f"{exp_name_invert}_left.pkl"
+                right_mapping_path = alignments_path / f"{exp_name_invert}_right.pkl"
+
+                if not left_mapping_path.exists():
+                    print(left_mapping_path)
+                    print(right_mapping_path)
+                    raise Exception(
+                        "There is no mapping between subjects "
+                        f"{subject} and {reference_subject}"
+                    )
+
+        if left_mapping_path is not None and right_mapping_path is not None:
+            left_mapping = load_mapping(left_mapping_path)
+            right_mapping = load_mapping(right_mapping_path)
+
+        for i, dataset_id in enumerate(train_dataset_ids):
+            datamodule = setup_xp(
+                dataset_id=dataset_id,
+                dataset_path=dataset_path,
+                subject=subject,
+                n_train_examples=None,
+                n_valid_examples=None,
+                n_test_examples=None,
+                pretrained_models_path=pretrained_models_path,
+                latent_types=[latent_type],
+                generation_seed=0,
+                batch_size=32,
+                window_size=window_size,
+                lag=lag,
+                agg="mean",
+                support="fsaverage5",
+                shuffle_labels=False,
+                cache=cache,
+            )
+
+            brain_features = datamodule.train_data.betas
+
+            # Align training brain features
+            if left_mapping_path is not None and right_mapping_path is not None:
+                if not invert_mapping:
+                    brain_features = np.concatenate(
+                        [
+                            left_mapping.transform(brain_features[:, :10242]),
+                            right_mapping.transform(brain_features[:, 10242:]),
+                        ],
+                        axis=1,
+                    )
+                else:
+                    brain_features = np.concatenate(
+                        [
+                            left_mapping.inverse_transform(brain_features[:, :10242]),
+                            right_mapping.inverse_transform(brain_features[:, 10242:]),
+                        ],
+                        axis=1,
+                    )
+
+            brain_features_train.append(brain_features)
+            latent_features_train.append(datamodule.train_data.labels[latent_type])
+
+    # Load validation data
+    brain_features_valid = []
+    latent_features_valid = []
+
+    invert_mapping = None
+    left_mapping_path = None
+    right_mapping_path = None
+
+    exp_name = f"sub-{valid_subject:02d}_sub-{reference_subject:02d}"
+    exp_name_invert = f"sub-{reference_subject:02d}_sub-{valid_subject:02d}"
+
+    if valid_subject != reference_subject and align:
+        invert_mapping = False
+        left_mapping_path = alignments_path / f"{exp_name}_left.pkl"
+        right_mapping_path = alignments_path / f"{exp_name}_right.pkl"
+
+        if not left_mapping_path.exists():
+            invert_mapping = True
+            left_mapping_path = alignments_path / f"{exp_name_invert}_left.pkl"
+            right_mapping_path = alignments_path / f"{exp_name_invert}_right.pkl"
+
+            if not left_mapping_path.exists():
+                print(left_mapping_path)
+                print(right_mapping_path)
+                raise Exception(
+                    "There is no mapping between subjects "
+                    f"{subject} and {reference_subject}"
+                )
+
+    if left_mapping_path is not None and right_mapping_path is not None:
+        left_mapping = load_mapping(left_mapping_path)
+        right_mapping = load_mapping(right_mapping_path)
+
+    for i, dataset_id in enumerate(valid_dataset_ids):
+        datamodule = setup_xp(
+            dataset_id=dataset_id,
+            dataset_path=dataset_path,
+            subject=valid_subject,
+            n_train_examples=None,
+            n_valid_examples=None,
+            n_test_examples=None,
+            pretrained_models_path=pretrained_models_path,
+            latent_types=[latent_type],
+            generation_seed=0,
+            batch_size=32,
+            window_size=window_size,
+            lag=lag,
+            agg="mean",
+            support="fsaverage5",
+            shuffle_labels=False,
+            cache=cache,
+        )
+
+        brain_features = datamodule.train_data.betas
+
+        # Align validation brain features
+        if left_mapping_path is not None and right_mapping_path is not None:
+            if not invert_mapping:
+                brain_features = np.concatenate(
+                    [
+                        left_mapping.transform(brain_features[:, :10242]),
+                        right_mapping.transform(brain_features[:, 10242:]),
+                    ],
+                    axis=1,
+                )
+            else:
+                brain_features = np.concatenate(
+                    [
+                        left_mapping.inverse_transform(brain_features[:, :10242]),
+                        right_mapping.inverse_transform(brain_features[:, 10242:]),
+                    ],
+                    axis=1,
+                )
+
+        brain_features_valid.append(brain_features)
+        latent_features_valid.append(datamodule.train_data.labels[latent_type])
+
+    brain_features_train = np.concatenate(brain_features_train)
+    latent_features_train = np.concatenate(latent_features_train)
+    brain_features_valid = np.concatenate(brain_features_valid)
+    latent_features_valid = np.concatenate(latent_features_valid)
+
+    train_decoder(
+        brain_features_train,
+        latent_features_train,
+        brain_features_valid,
+        latent_features_valid,
+        wandb_project=(
+            "inter-species-sweep-multi-"
+            f"{'aligned' if align else 'unaligned'}-"
+            f"{latent_type}-"
+            f"ref-sub-{reference_subject:02d}-"
+            f"valid-sub-{valid_subject:02d}"
+            f"_{wandb_project_postfix}" if wandb_project_postfix is not None else ""
+        ),
+        wandb_tags=wandb_tags,
+        # model + training parameters
+        hidden_size_backbone=hidden_size_backbone,
+        hidden_size_projector=hidden_size_projector,
+        dropout=dropout,
+        n_res_blocks=n_res_blocks,
+        n_proj_blocks=n_proj_blocks,
+        temperature=temperature,
+        batch_size=batch_size,
+        lr=lr,
+        weight_decay=weight_decay,
+        n_epochs=n_epochs,
+        checkpoints_path=checkpoints_path,
+    )

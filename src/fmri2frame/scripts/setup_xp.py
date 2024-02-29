@@ -58,17 +58,12 @@ def setup_xp(
     # 2. Compute or load latent representations of stimuli
     all_latents = dict()
     for latent_type in latent_types:
-        if latent_type in [
-            "clip_vision_latents",
-            "clip_text_latents",
-        ]:
+        if latent_type in ["clip_vision_latents", "clip_text_latents"]:
             model_path = pretrained_models_path.vd
-        elif latent_type in [
-            "vdvae_encoder_31l_latents",
-        ]:
+        elif latent_type in ["vdvae_encoder_31l_latents"]:
             model_path = pretrained_models_path.vdvae
         elif latent_type in ["clip_vision_cls"]:
-            model_path = None
+            model_path = pretrained_models_path.clip
         elif latent_type in ["sd_autokl"]:
             model_path = pretrained_models_path.sd
         else:

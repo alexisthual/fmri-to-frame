@@ -135,17 +135,13 @@ def extract_vae_latents(
     for batch in tqdm(dataloader):
         if len(batch.shape) == 5:
             for tr in batch:
-                tr_images_for_vdvae = torch.stack(
-                    VdvaeModel.prepare_images(tr)
-                )
+                tr_images_for_vdvae = torch.stack(VdvaeModel.prepare_images(tr))
                 tr_vdvae_latents = vae.get_vdvae_latent(tr_images_for_vdvae)
                 vdvae_encoder_31l_latents.append(
                     np.mean(tr_vdvae_latents.cpu().numpy(), axis=0)
                 )
         elif len(batch.shape) == 4:
-            batch_images_for_vdvae = torch.stack(
-                VdvaeModel.prepare_images(batch)
-            )
+            batch_images_for_vdvae = torch.stack(VdvaeModel.prepare_images(batch))
             batch_vdvae_latents = vae.get_vdvae_latent(batch_images_for_vdvae)
             vdvae_encoder_31l_latents.extend(batch_vdvae_latents.cpu().numpy())
 
@@ -157,9 +153,7 @@ def extract_vae_latents(
 
         # Flatten latents for each sample
         n_samples = vdvae_encoder_31l_latents.shape[0]
-        vdvae_encoder_31l_latents = vdvae_encoder_31l_latents.reshape(
-            n_samples, -1
-        )
+        vdvae_encoder_31l_latents = vdvae_encoder_31l_latents.reshape(n_samples, -1)
 
     return vdvae_encoder_31l_latents
 
@@ -230,18 +224,14 @@ def extract_clip_vision_latents(
                     )
 
                     tr_latents.append(frame_latents)
-                clip_vision_latents.append(
-                    np.mean(np.stack(tr_latents), axis=0)
-                )
+                clip_vision_latents.append(np.mean(np.stack(tr_latents), axis=0))
         elif len(batch.shape) == 4:
             for frame in batch:
                 batch_images_for_clip = torch.stack(
                     VersatileDiffusionModel.prepare_images([frame])
                 )
                 batch_clip_vision_latents = (
-                    diffusion.get_clip_image(batch_images_for_clip)
-                    .cpu()
-                    .numpy()
+                    diffusion.get_clip_image(batch_images_for_clip).cpu().numpy()
                 )
                 clip_vision_latents.append(batch_clip_vision_latents)
 
@@ -325,7 +315,12 @@ def compute_clip_vision_cls(
     torch.manual_seed(seed)
 
     fmri_dataset = load_fmridataset(dataset_id, dataset_path, subject)
-    model, clip_preprocess = clip.load("ViT-L/14", device="cuda", jit=False)
+    model, clip_preprocess = clip.load(
+        "ViT-L/14",
+        device="cuda",
+        jit=False,
+        download_root=str(model_path) if model_path is not None else None,
+    )
     stimulus_key = "images"
 
     dataloader = DataLoader(
@@ -359,9 +354,7 @@ def extract_clip_vision_cls(
 
     def process_frame(frame):
         img = Image.fromarray(frame.astype(np.uint8))
-        res = image_processor(
-            img, resolution=resolution, preprocess=clip_preprocess
-        )
+        res = image_processor(img, resolution=resolution, preprocess=clip_preprocess)
         img = res["x_clip"].unsqueeze(0).to(device).float()
 
         clip_latents = model.encode_image(img)
@@ -402,7 +395,11 @@ def compute_sd_autokl(
     torch.manual_seed(seed)
 
     fmri_dataset = load_fmridataset(dataset_id, dataset_path, subject)
-    _, clip_preprocess = clip.load("ViT-L/14", device="cuda", jit=False)
+    _, clip_preprocess = clip.load(
+        "ViT-L/14",
+        device="cuda",
+        jit=False,
+    )
     model = load_stablediffusion_model(model_path)
     stimulus_key = "images"
 
@@ -425,9 +422,7 @@ def load_stablediffusion_model(
     logger.info("Loading stable-diffusion model...")
 
     p = Path(pretrained_models_path)
-    model = instantiate_from_config(
-        OmegaConf.load(p / "v1-inference.yaml").model
-    )
+    model = instantiate_from_config(OmegaConf.load(p / "v1-inference.yaml").model)
     model.load_state_dict(
         torch.load(p / "sd-v1-3.ckpt", map_location="cpu")["state_dict"],
         strict=False,

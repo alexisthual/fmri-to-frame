@@ -29,7 +29,7 @@ source_datasets = [
     "ibc_mk_seg-1",
     "ibc_mk_seg-2",
 ]
-source_dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+source_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 source_is_macaque = False
 
 target_datasets = [
@@ -38,7 +38,7 @@ target_datasets = [
     "ibc_mk_seg-1",
     "ibc_mk_seg-2",
 ]
-target_dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+target_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 target_is_macaque = False
 
 alpha = 0.5
@@ -67,12 +67,12 @@ output_path.mkdir(parents=True, exist_ok=True)
 # 2. Setup for aligning all pairs of IBC humans and Leuven macaques
 
 # source_datasets = ["leuven_mk_seg-1", "leuven_mk_seg-2"]
-# source_dataset_path = "/gpfsstore/rech/nry/uul79xi/data/leuven"
+# source_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
 # source_subjects = ["Luce", "Jack"]
 # source_is_macaque = True
 
 # target_datasets = ["ibc_mk_seg-1", "ibc_mk_seg-2"]
-# target_dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+# target_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 # target_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 # target_is_macaque = False
 

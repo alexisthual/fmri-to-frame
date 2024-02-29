@@ -27,16 +27,17 @@ dataset_ids = [
     "ibc_mk_seg-1",
     "ibc_mk_seg-2",
 ]
-dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 
 lag = 2
 window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
-        "vd": "/gpfsstore/rech/nry/uul79xi/data",
-        "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
+        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
+        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
+        "vd": "/gpfsstore/rech/nry/uul79xi/models",
+        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
     }
 )
 cache = "/gpfsscratch/rech/nry/uul79xi/cache"
