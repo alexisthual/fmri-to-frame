@@ -501,7 +501,7 @@ def extract_clip_vision_cls(
         all_clip_latents = []
 
         for _ in range(n_augmentations):
-            # Augment frame before CLIP pre-processing
+            # Augment frame before pre-processing
             img = Image.fromarray(augment_image(frame))
             img = clip_preprocess(img).unsqueeze(0).to(device)
 
