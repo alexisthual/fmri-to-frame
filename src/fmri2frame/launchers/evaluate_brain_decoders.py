@@ -12,7 +12,7 @@ import omegaconf
 import submitit
 from hydra.core.hydra_config import HydraConfig
 
-from fmri2frame.scripts.eval import evaluate_brain_decoder
+from fmri2frame.scripts.evaluate_brain_decoder import evaluate_brain_decoder
 from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # %%
@@ -71,11 +71,12 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # 2. Evaluate brain decoders on IBC + Leuven
 
-human_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+# human_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+human_subjects = [4, 6]
 human_dataset_ids = [
     # "ibc_mk_seg-3",
-    "ibc_mk_seg-4",
-    # "ibc_mk_seg-5",
+    # "ibc_mk_seg-4",
+    "ibc_mk_seg-5",
 ]
 human_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 human_lag = 2
@@ -84,8 +85,8 @@ human_window_size = 2
 macaque_subjects = ["Luce", "Jack"]
 macaque_dataset_ids = [
     # "leuven_mk_seg-3",
-    "leuven_mk_seg-4",
-    # "leuven_mk_seg-5",
+    # "leuven_mk_seg-4",
+    "leuven_mk_seg-5",
 ]
 macaque_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
 macaque_lag = 2
@@ -110,7 +111,9 @@ latent_types = [
 
 args_map = list(
     product(
-        human_subjects,
+        # training subject or reference subject
+        [4],
+        # decoding subjects
         list(
             zip(
                 human_subjects,
@@ -136,20 +139,24 @@ args_map = list(
 )
 
 exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
+decoder_is_contrastive = True
 decoders_path = (
     exps_path
-    / "decoders_multi-subject"
-    / "clips-train-valid_mk-1-2"
-    / "clips-train-valid_mk-1-2_mm"
+    / "decoders"
+    / "multi-subject"
+    / "contrastive"
+    / "clips-train-valid_mk-1-2-3-4"
+    / "clips-train-valid_mk-1-2_mm_alpha-0.5"
 )
-alignments_path = exps_path / "alignments" / "mk-1-2_mm"
+alignments_path = exps_path / "alignments" / "mk-1-2_mm_alpha-0.5"
 output_path = (
     exps_path
     / "evaluations"
     / "multi-subject"
-    / "clips-train-valid_mk-1-2"
+    / "contrastive"
+    / "clips-train-valid_mk-1-2-3-4"
     / "clips-train-valid_mk-1-2_mm"
-    / "mk-4"
+    / "mk-5"
 )
 # decoders_path = exps_path / "decoders_single-subject" / "clips-train-valid_mk-1-2"
 # alignments_path = exps_path / "alignments" / "mk-1-2_mm"
@@ -228,8 +235,18 @@ def eval_brain_decoder_wrapper(args):
             f"sub-{reference_subject:02d}_{latent_type}_sub-{leftout_subject:02d}"
         )
 
+    if decoder_is_contrastive:
+        decoder_path = (
+            decoders_path
+            / f"sub-{reference_subject:02d}_{latent_type}"
+            / "checkpoint_010.pt"
+        )
+    else:
+        decoder_path = decoders_path / f"sub-{reference_subject:02d}_{latent_type}.pkl"
+
     evaluate_brain_decoder(
-        decoder_path=decoders_path / f"sub-{reference_subject:02d}_{latent_type}.pkl",
+        decoder_path=decoder_path,
+        decoder_is_contrastive=decoder_is_contrastive,
         dataset_ids=dataset_ids,
         dataset_path=dataset_path,
         subject=leftout_subject,

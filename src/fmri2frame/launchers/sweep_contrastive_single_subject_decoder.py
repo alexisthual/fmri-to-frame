@@ -60,7 +60,10 @@ baseline_config = {
 
 # for clip_vision_cls
 latent_type = "clip_vision_cls"
-baseline_config.update({})
+n_augmentations = 20
+baseline_config.update({
+    "temperature": 0.03,
+})
 
 # Possible fine-tuned values
 finetuned_values = {
@@ -69,7 +72,7 @@ finetuned_values = {
     # "dropout": [0.0, 0.1, 0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
     # "n_res_blocks": [0, 1, 3],
     # "n_proj_blocks": [0, 2],
-    "temperature": [0.1, 0.03, 0.003, 0.001, 0.0001],
+    # "temperature": [0.1, 0.03, 0.003, 0.001, 0.0001],
     # "batch_size": [32, 64, 128, 256, 512, 1024],
     # "lr": [1e-3, 1e-4, 1e-5],
     # "weight_decay": [1e-1, 1e-2, 1e-3, 1e-4],
@@ -77,9 +80,24 @@ finetuned_values = {
 
 # Launch 1 job with baseline config
 # and then jobs for which the value of only one parameter has changed
-# args_map = [{}] + [{k: v} for k, values in finetuned_values.items() for v in values]
-args_map = [{k: v} for k, values in finetuned_values.items() for v in values]
+args_map = [{}] + [{k: v} for k, values in finetuned_values.items() for v in values]
+# args_map = [{k: v} for k, values in finetuned_values.items() for v in values]
 # args_map = args_map[:2]
+
+checkpoints_path = None
+# checkpoints_path = (
+#     exps_path
+#     / "decoders_multi-subject"
+#     / "contrastive"
+#     / "clips-train-valid_mk-1-2"
+#     / "clips-train-valid_mk-1-2_mm"
+#     / f"sub-{reference_subject:02d}_{latent_type}"
+# )
+if checkpoints_path is not None:
+    checkpoints_path.mkdir(parents=True, exist_ok=True)
+
+wandb_project_postfix = None
+# wandb_project_postfix = "train-clips-train-valid_mk-1-2_test-mk-4"
 
 
 # %%
@@ -98,15 +116,18 @@ def train_brain_decoder_wrapper(args):
         subject=subject,
         lag=lag,
         window_size=window_size,
-        latent_type=latent_type,
         pretrained_models_path=pretrained_models,
+        latent_type=latent_type,
+        n_augmentations=n_augmentations,
         cache=cache,
         # model + training parameters
+        wandb_project_postfix=wandb_project_postfix,
         wandb_tags=wandb_tags,
         **{
             **baseline_config,
             **finetuned_config,
-        }
+        },
+        checkpoints_path=checkpoints_path,
     )
 
 

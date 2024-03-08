@@ -3,12 +3,16 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.nn as nn
 from fugw.utils import load_mapping
 from scipy.linalg import norm
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader
 
+from fmri2frame.scripts.brain_decoder_contrastive import BrainDecoder
 from fmri2frame.scripts.compute_alignment import get_n_vertices_left
+from fmri2frame.scripts.generate_captions import generate_captions
 from fmri2frame.scripts.setup_xp import setup_xp
 
 
@@ -141,6 +145,7 @@ def compute_retrieval_metrics(
 
 def evaluate_brain_decoder(
     decoder_path=None,
+    decoder_is_contrastive=False,
     dataset_ids=None,
     dataset_path=None,
     subject=None,
@@ -159,9 +164,27 @@ def evaluate_brain_decoder(
     output_path=None,
 ):
     """Evaluate brain decoder."""
+    device = torch.device("cuda")
+
     # Load model
-    with open(decoder_path, "rb") as f:
-        ridge = pickle.load(f)
+    if decoder_is_contrastive:
+        checkpoint = torch.load(decoder_path, map_location="cpu")
+        brain_decoder_params = {
+            "out_dim": 768,
+            "hidden_size_backbone": 512,
+            "hidden_size_projector": 512,
+            "dropout": 0.8,
+            "n_res_blocks": 2,
+            "n_proj_blocks": 1,
+        }
+        brain_decoder = BrainDecoder(**brain_decoder_params).to(device)
+        brain_decoder.load_state_dict(checkpoint["model_state_dict"])
+        # brain_decoder = BrainDecoder(**checkpoint["brain_decoder_params"]).to(device)
+        # brain_decoder.load_state_dict(checkpoint["brain_decoder_state_dict"])
+        brain_decoder.eval()
+    else:
+        with open(decoder_path, "rb") as f:
+            brain_decoder = pickle.load(f)
 
     # Load brain features
     brain_features = []
@@ -240,9 +263,33 @@ def evaluate_brain_decoder(
         brain_features = -1 * brain_features
 
     # Predict latents
-    predictions = ridge.predict(
-        SimpleImputer().fit_transform(StandardScaler().fit_transform(brain_features))
-    )
+    if decoder_is_contrastive:
+        dataloader = DataLoader(
+            torch.from_numpy(brain_features),
+            batch_size=128,
+            shuffle=False,
+            drop_last=False,
+        )
+
+        predictions = []
+        with torch.no_grad():
+            with torch.cuda.amp.autocast():
+                for brain_features_batch in dataloader:
+                    brain_features_batch = brain_features_batch.to(
+                        device, non_blocking=True
+                    )
+                    _, predicted_latent_features = brain_decoder(brain_features_batch)
+                    # predicted_latent_features_norm = nn.functional.normalize(
+                    #     predicted_latent_features, dim=-1
+                    # )
+                    predictions.append(predicted_latent_features.cpu().numpy())
+        predictions = np.concatenate(predictions)
+    else:
+        predictions = brain_decoder.predict(
+            SimpleImputer().fit_transform(
+                StandardScaler().fit_transform(brain_features)
+            )
+        )
 
     # Generate retrieval set
     generator = torch.Generator()
@@ -263,6 +310,9 @@ def evaluate_brain_decoder(
         return_scores=True,
     )
 
+    # Generate captions for each frame
+    captions = generate_captions(predictions)
+
     # Store results
     with open(output_path / f"{output_name}_predictions.pkl", "wb") as f:
         pickle.dump(predictions, f)
@@ -274,3 +324,6 @@ def evaluate_brain_decoder(
 
     with open(output_path / f"{output_name}_metrics.pkl", "wb") as f:
         pickle.dump(retrieval_metrics, f)
+
+    with open(output_path / f"{output_name}_captions.pkl", "wb") as f:
+        pickle.dump(captions, f)

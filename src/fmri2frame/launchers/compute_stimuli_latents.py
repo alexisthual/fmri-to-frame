@@ -12,7 +12,7 @@ import omegaconf
 import submitit
 from hydra.core.hydra_config import HydraConfig
 
-from fmri2frame.scripts.compute_latents import compute_latents
+from fmri2frame.scripts.compute_latents import compute_augmented_latents
 from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 
@@ -45,6 +45,8 @@ cache = "/gpfsscratch/rech/nry/uul79xi/cache"
 # dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 # subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 
+# n_augmentations = 1
+
 # latent_types = [
 #     "clip_vision_cls",
 #     # "sd_autokl",
@@ -73,10 +75,12 @@ dataset_ids = [
 dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
 subjects = ["Luce", "Jack"]
 
+n_augmentations = 1
+
 latent_types = [
     "clip_vision_cls",
     # "sd_autokl",
-    "clip_vision_latents",
+    # "clip_vision_latents",
     # "vdvae_encoder_31l_latents",
 ]
 
@@ -106,7 +110,7 @@ def init_latent(dataset_id, latent_type, subject):
     else:
         raise NotImplementedError()
 
-    latents, _ = compute_latents(
+    latents, _ = compute_augmented_latents(
         dataset_id=dataset_id,
         dataset_path=dataset_path,
         subject=subject,
@@ -115,6 +119,7 @@ def init_latent(dataset_id, latent_type, subject):
         seed=seed,
         batch_size=batch_size,
         cache=cache,
+        n_augmentations=n_augmentations,
     )
 
     return latents
@@ -162,7 +167,7 @@ def launch_jobs(config):
         # cpus_per_task=10,
         # gpus_per_node=2,
         # JZ config for computing latents (clip_vision_latents, vdvae)
-        slurm_time="00:40:00",
+        slurm_time="06:00:00",
         slurm_account="nry@v100",
         slurm_partition="gpu_p13",
         cpus_per_task=40,
