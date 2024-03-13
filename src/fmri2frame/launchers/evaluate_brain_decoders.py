@@ -20,77 +20,11 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # 1. Evaluate brain decoders on individual IBC subjects on clips-train
 
-# subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-# dataset_ids = ["ibc_clips_seg-valid"]
-# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-# lag = 2
-# window_size = 2
-
-# pretrained_models = SimpleNamespace(
-#     **{
-#         "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
-#         "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
-#         "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-#         "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-#     }
-# )
-# cache = "/gpfsscratch/rech/nry/uul79xi/cache"
-
-# latent_types = [
-#     "clip_vision_cls",
-#     # "sd_autokl",
-#     # "clip_vision_latents",
-#     # "vdvae_encoder_31l_latents",
-# ]
-
-# args_map = list(
-#     product(
-#         subjects,
-#         list(
-#             zip(
-#                 subjects,
-#                 np.tile(dataset_ids, (len(subjects), 1)).tolist(),
-#                 np.tile(dataset_path, len(subjects)).tolist(),
-#                 np.tile(lag, len(subjects)).tolist(),
-#                 np.tile(window_size, len(subjects)).tolist(),
-#                 np.tile(False, len(subjects)).tolist(),  # subject_is_macaque
-#             )
-#         ),
-#         latent_types,
-#     )
-# )
-
-# exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
-# # decoders_path = exps_path / "decoders_single-subject" / "clips-train"
-# decoders_path = exps_path / "decoders_multi-subject" / "clips-train"
-# alignments_path = exps_path / "alignments" / "clips-train_mm"
-# # output_path = exps_path / "evaluations" / "clips-train_mm_single"
-# output_path = exps_path / "evaluations" / "clips-train_mm_multi"
-# output_path.mkdir(parents=True, exist_ok=True)
-
-
-# 2. Evaluate brain decoders on IBC + Leuven
-
-# human_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-human_subjects = [4, 6]
-human_dataset_ids = [
-    # "ibc_mk_seg-3",
-    # "ibc_mk_seg-4",
-    "ibc_mk_seg-5",
-]
-human_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-human_lag = 2
-human_window_size = 2
-
-macaque_subjects = ["Luce", "Jack"]
-macaque_dataset_ids = [
-    # "leuven_mk_seg-3",
-    # "leuven_mk_seg-4",
-    "leuven_mk_seg-5",
-]
-macaque_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
-macaque_lag = 2
-macaque_window_size = 2
+subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+dataset_ids = ["ibc_clips_seg-valid"]
+dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+lag = 2
+window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
@@ -111,32 +45,22 @@ latent_types = [
 
 args_map = list(
     product(
-        # training subject or reference subject
-        [4],
-        # decoding subjects
+        subjects,
         list(
             zip(
-                human_subjects,
-                np.tile(human_dataset_ids, (len(human_subjects), 1)).tolist(),
-                np.tile(human_dataset_path, len(human_subjects)).tolist(),
-                np.tile(human_lag, len(human_subjects)).tolist(),
-                np.tile(human_window_size, len(human_subjects)).tolist(),
-                np.tile(False, len(human_subjects)).tolist(),  # subject_is_macaque
-            )
-        )
-        + list(
-            zip(
-                macaque_subjects,
-                np.tile(macaque_dataset_ids, (len(macaque_subjects), 1)).tolist(),
-                np.tile(macaque_dataset_path, len(macaque_subjects)).tolist(),
-                np.tile(macaque_lag, len(macaque_subjects)).tolist(),
-                np.tile(macaque_window_size, len(macaque_subjects)).tolist(),
-                np.tile(True, len(macaque_subjects)).tolist(),  # subject_is_macaque
+                subjects,
+                np.tile(dataset_ids, (len(subjects), 1)).tolist(),
+                np.tile(dataset_path, len(subjects)).tolist(),
+                np.tile(lag, len(subjects)).tolist(),
+                np.tile(window_size, len(subjects)).tolist(),
+                np.tile(False, len(subjects)).tolist(),  # subject_is_macaque
             )
         ),
         latent_types,
     )
 )
+
+train_subjects_str = f"{'-'.join([f'{s:02d}' for s in subjects])}"
 
 exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
 decoder_is_contrastive = True
@@ -145,23 +69,117 @@ decoders_path = (
     / "decoders"
     / "multi-subject"
     / "contrastive"
-    / "clips-train-valid_mk-1-2-3-4"
-    / "clips-train-valid_mk-1-2_mm_alpha-0.5"
+    / "clips-train"
+    / "clips-train_mm_alpha-0.5"
 )
-alignments_path = exps_path / "alignments" / "mk-1-2_mm_alpha-0.5"
+alignments_path = exps_path / "alignments" / "clips-train_mm_alpha-0.5"
 output_path = (
     exps_path
     / "evaluations"
     / "multi-subject"
     / "contrastive"
-    / "clips-train-valid_mk-1-2-3-4"
-    / "clips-train-valid_mk-1-2_mm"
-    / "mk-5"
+    / "clips-train"
+    / "clips-train_mm_alpha-0.5"
+    / "clips-valid"
 )
 # decoders_path = exps_path / "decoders_single-subject" / "clips-train-valid_mk-1-2"
 # alignments_path = exps_path / "alignments" / "mk-1-2_mm"
 # output_path = exps_path / "evaluations" / "clips-train-valid_mk-1-2" / "mk-4"
 output_path.mkdir(parents=True, exist_ok=True)
+
+# 2. Evaluate brain decoders on IBC + Leuven
+
+# # human_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+# human_subjects = [4, 6]
+# human_dataset_ids = [
+#     # "ibc_mk_seg-3",
+#     # "ibc_mk_seg-4",
+#     "ibc_mk_seg-5",
+# ]
+# human_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+# human_lag = 2
+# human_window_size = 2
+
+# macaque_subjects = ["Luce", "Jack"]
+# macaque_dataset_ids = [
+#     # "leuven_mk_seg-3",
+#     # "leuven_mk_seg-4",
+#     "leuven_mk_seg-5",
+# ]
+# macaque_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
+# macaque_lag = 2
+# macaque_window_size = 2
+
+# pretrained_models = SimpleNamespace(
+#     **{
+#         "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
+#         "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
+#         "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
+#         "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+#     }
+# )
+# cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+
+# latent_types = [
+#     "clip_vision_cls",
+#     # "sd_autokl",
+#     # "clip_vision_latents",
+#     # "vdvae_encoder_31l_latents",
+# ]
+
+# args_map = list(
+#     product(
+#         # training subject or reference subject
+#         [4],
+#         # decoding subjects
+#         list(
+#             zip(
+#                 human_subjects,
+#                 np.tile(human_dataset_ids, (len(human_subjects), 1)).tolist(),
+#                 np.tile(human_dataset_path, len(human_subjects)).tolist(),
+#                 np.tile(human_lag, len(human_subjects)).tolist(),
+#                 np.tile(human_window_size, len(human_subjects)).tolist(),
+#                 np.tile(False, len(human_subjects)).tolist(),  # subject_is_macaque
+#             )
+#         )
+#         + list(
+#             zip(
+#                 macaque_subjects,
+#                 np.tile(macaque_dataset_ids, (len(macaque_subjects), 1)).tolist(),
+#                 np.tile(macaque_dataset_path, len(macaque_subjects)).tolist(),
+#                 np.tile(macaque_lag, len(macaque_subjects)).tolist(),
+#                 np.tile(macaque_window_size, len(macaque_subjects)).tolist(),
+#                 np.tile(True, len(macaque_subjects)).tolist(),  # subject_is_macaque
+#             )
+#         ),
+#         latent_types,
+#     )
+# )
+
+# exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
+# decoder_is_contrastive = True
+# decoders_path = (
+#     exps_path
+#     / "decoders"
+#     / "multi-subject"
+#     / "contrastive"
+#     / "clips-train-valid_mk-1-2-3-4"
+#     / "clips-train-valid_mk-1-2_mm_alpha-0.5"
+# )
+# alignments_path = exps_path / "alignments" / "mk-1-2_mm_alpha-0.5"
+# output_path = (
+#     exps_path
+#     / "evaluations"
+#     / "multi-subject"
+#     / "contrastive"
+#     / "clips-train-valid_mk-1-2-3-4"
+#     / "clips-train-valid_mk-1-2_mm"
+#     / "mk-5"
+# )
+# # decoders_path = exps_path / "decoders_single-subject" / "clips-train-valid_mk-1-2"
+# # alignments_path = exps_path / "alignments" / "mk-1-2_mm"
+# # output_path = exps_path / "evaluations" / "clips-train-valid_mk-1-2" / "mk-4"
+# output_path.mkdir(parents=True, exist_ok=True)
 
 
 # %%
@@ -238,7 +256,7 @@ def eval_brain_decoder_wrapper(args):
     if decoder_is_contrastive:
         decoder_path = (
             decoders_path
-            / f"sub-{reference_subject:02d}_{latent_type}"
+            / f"ref-{reference_subject:02d}_train-{train_subjects_str}_{latent_type}"
             / "checkpoint_010.pt"
         )
     else:
@@ -263,6 +281,7 @@ def eval_brain_decoder_wrapper(args):
         selected_indices_right_path=selected_indices_right_path,
         output_name=output_name,
         output_path=output_path,
+        should_generate_captions=False,
     )
 
 
@@ -287,7 +306,7 @@ def launch_jobs(config):
     )
     executor.update_parameters(
         slurm_job_name="eval_decoder",
-        slurm_time="00:10:00",
+        slurm_time="02:00:00",
         # JZ config
         slurm_account="nry@v100",
         slurm_partition="gpu_p13",

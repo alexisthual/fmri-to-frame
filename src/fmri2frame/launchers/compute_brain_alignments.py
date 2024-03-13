@@ -75,10 +75,10 @@ source_datasets = [
     "leuven_mk_seg-2",
     "leuven_mk_seg-3",
     "leuven_mk_seg-4",
-    # "leuven_mk_seg-5",
+    "leuven_mk_seg-5",
 ]
 source_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
-source_subjects = ["Luce", "Jack"]
+source_subjects = ["Luce"]
 source_is_macaque = True
 
 target_datasets = [
@@ -86,17 +86,24 @@ target_datasets = [
     "ibc_mk_seg-2",
     "ibc_mk_seg-3",
     "ibc_mk_seg-4",
-    # "ibc_mk_seg-5",
+    "ibc_mk_seg-5",
 ]
 target_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 target_subjects = [4, 11]
 target_is_macaque = False
 
-alpha = 0.5
+# alpha = 0.5
+alphas = [0.0, 0.25, 0.5, 0.75, 1.0]
 eps = 100
 # rho = 1e9
 # rhos = [1e8, 2e8, 3e8, 4e8, 5e8, 6e8, 7e8, 8e8, 9e8, 1e9]
-rhos = [1e7, 2e7, 3e7, 4e7, 5e7, 6e7, 7e7, 8e7, 9e7]
+# fmt: off
+rhos = [
+    1e7, 2e7, 3e7, 4e7, 5e7, 6e7, 7e7, 8e7, 9e7,
+    1e8, 2e8, 3e8, 4e8, 5e8, 6e8, 7e8, 8e8, 9e8,
+    1e9,
+]
+# fmt: on
 reg_mode = "joint"
 divergence = "l2"
 solver = "mm"
@@ -105,6 +112,7 @@ args_map = list(
     product(
         source_subjects,
         target_subjects,
+        alphas,
         rhos,
     )
 )
@@ -118,12 +126,15 @@ def get_output_name(source_subject, target_subject):
 # %%
 def compute_alignment_wrapper(args):
     """Compute alignment between two subjects."""
-    (source_subject, target_subject, rho) = args
+    (source_subject, target_subject, alpha, rho) = args
     print(
         f"Align {source_subject} {target_subject} alpha={alpha} rho={rho:.1e} eps={eps}"
     )
 
-    output_path = alignments_path / f"mk-1-2-3-4_{solver}_alpha-{alpha}_rho-{rho:.1e}"
+    output_path = (
+        alignments_path
+        / f"mk-1-2-3-4-5_{solver}_div-{divergence}_alpha-{alpha}_rho-{rho:.1e}"
+    )
     output_path.mkdir(parents=True, exist_ok=True)
     output_name = get_output_name(source_subject, target_subject)
 

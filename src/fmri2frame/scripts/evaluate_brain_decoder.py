@@ -3,7 +3,6 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn as nn
 from fugw.utils import load_mapping
 from scipy.linalg import norm
 from sklearn.impute import SimpleImputer
@@ -162,6 +161,7 @@ def evaluate_brain_decoder(
     selected_indices_right_path=None,
     output_name=None,
     output_path=None,
+    should_generate_captions=True,
 ):
     """Evaluate brain decoder."""
     device = torch.device("cuda")
@@ -169,18 +169,18 @@ def evaluate_brain_decoder(
     # Load model
     if decoder_is_contrastive:
         checkpoint = torch.load(decoder_path, map_location="cpu")
-        brain_decoder_params = {
-            "out_dim": 768,
-            "hidden_size_backbone": 512,
-            "hidden_size_projector": 512,
-            "dropout": 0.8,
-            "n_res_blocks": 2,
-            "n_proj_blocks": 1,
-        }
-        brain_decoder = BrainDecoder(**brain_decoder_params).to(device)
-        brain_decoder.load_state_dict(checkpoint["model_state_dict"])
-        # brain_decoder = BrainDecoder(**checkpoint["brain_decoder_params"]).to(device)
-        # brain_decoder.load_state_dict(checkpoint["brain_decoder_state_dict"])
+        # brain_decoder_params = {
+        #     "out_dim": 768,
+        #     "hidden_size_backbone": 512,
+        #     "hidden_size_projector": 512,
+        #     "dropout": 0.8,
+        #     "n_res_blocks": 2,
+        #     "n_proj_blocks": 1,
+        # }
+        # brain_decoder = BrainDecoder(**brain_decoder_params).to(device)
+        # brain_decoder.load_state_dict(checkpoint["model_state_dict"])
+        brain_decoder = BrainDecoder(**checkpoint["brain_decoder_params"]).to(device)
+        brain_decoder.load_state_dict(checkpoint["brain_decoder_state_dict"])
         brain_decoder.eval()
     else:
         with open(decoder_path, "rb") as f:
@@ -310,8 +310,16 @@ def evaluate_brain_decoder(
         return_scores=True,
     )
 
+    retrieval_metrics["retrieval_set_indices"] = retrieval_set_indices.cpu().numpy()
+
     # Generate captions for each frame
-    captions = generate_captions(predictions)
+    if should_generate_captions:
+        captions = generate_captions(predictions)
+
+        with open(output_path / f"{output_name}_captions.pkl", "wb") as f:
+            pickle.dump(captions, f)
+    else:
+        pass
 
     # Store results
     with open(output_path / f"{output_name}_predictions.pkl", "wb") as f:
@@ -324,6 +332,3 @@ def evaluate_brain_decoder(
 
     with open(output_path / f"{output_name}_metrics.pkl", "wb") as f:
         pickle.dump(retrieval_metrics, f)
-
-    with open(output_path / f"{output_name}_captions.pkl", "wb") as f:
-        pickle.dump(captions, f)

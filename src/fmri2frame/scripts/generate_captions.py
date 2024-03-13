@@ -281,9 +281,12 @@ def generate2(
                 if stop_token_index == next_token.item():
                     break
 
-            output_list = list(tokens.squeeze().cpu().numpy())
-            output_text = tokenizer.decode(output_list)
-            generated_list.append(output_text)
+            try:
+                output_list = list(tokens.squeeze().cpu().numpy())
+                output_text = tokenizer.decode(output_list)
+                generated_list.append(output_text)
+            except TypeError:
+                generated_list.append("")
 
     return generated_list[0]
 
@@ -315,15 +318,15 @@ def generate_captions(predictions, device=torch.device("cuda:0")):
             prefix_embed = clipcap.clip_project(prefix).reshape(1, prefix_length, -1)
 
             # Beam search
-            beam_generated_text_prefix = generate_beam(
-                clipcap, tokenizer, embed=prefix_embed
-            )[0]
-
-            # Other
-            other_generated_text_prefix = generate2(
+            beam_generated_texts = generate_beam(
                 clipcap, tokenizer, embed=prefix_embed
             )
 
-            captions.append([beam_generated_text_prefix, other_generated_text_prefix])
+            # Other
+            other_generated_text = generate2(
+                clipcap, tokenizer, embed=prefix_embed
+            )
+
+            captions.append([beam_generated_texts, other_generated_text])
 
     return captions
