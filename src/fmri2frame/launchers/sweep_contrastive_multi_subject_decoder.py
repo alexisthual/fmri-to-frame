@@ -64,6 +64,7 @@ baseline_config = {
     "dropout": 0.3,
     "n_res_blocks": 2,
     "n_proj_blocks": 1,
+    "alpha": 0,
     "temperature": 0.01,
     "batch_size": 128,
     "lr": 1e-4,
@@ -102,6 +103,7 @@ finetuned_values = {
     # "batch_size": [32, 64, 256, 512, 1024],
     # "lr": [1e-2, 3e-3],
     # "weight_decay": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
+    "alpha": [],
 }
 
 # Launch 1 job with baseline config
@@ -132,11 +134,17 @@ def train_brain_decoder_wrapper(args):
         f"{finetuned_config}"
     )
 
+    run_config = {
+        **baseline_config,
+        **finetuned_config,
+    }
+
     checkpoints_path = None
     checkpoints_path = (
         exps_path
-        / "decoders_multi-subject"
-        / "contrastive"
+        / "decoders"
+        / "multi-subject"
+        / f"fused_alpha-{run_config['alpha']}"
         # brain decoder training data
         / "clips-train"
         # alignment training data
@@ -168,10 +176,7 @@ def train_brain_decoder_wrapper(args):
         # model + training parameters
         wandb_project_postfix=wandb_project_postfix,
         wandb_tags=wandb_tags,
-        **{
-            **baseline_config,
-            **finetuned_config,
-        },
+        **run_config,
         checkpoints_path=checkpoints_path,
     )
 

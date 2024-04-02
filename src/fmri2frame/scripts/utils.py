@@ -1,6 +1,7 @@
 import collections
 import datetime
 import logging
+import sys
 import time
 import typing as tp
 
@@ -62,6 +63,12 @@ def get_logger(name="rich"):
     return logger
 
 
+def clear_last_n_lines(n):
+    if sys.stdout.isatty():
+        for _ in range(n):
+            print("\033[F\033[K", end="")
+
+
 def submitit_monitoring_logging(
     monitoring_start_time: float,
     n_jobs: int,
@@ -76,22 +83,17 @@ def submitit_monitoring_logging(
     n_chars = len(str(n_jobs))
 
     # Clear last 3 lines from previous logging
-    # for _ in range(3):
-    #     print("\033[F\033[K", end="")
-    # s = "\033[F\033[K" * 3
+    clear_last_n_lines(3)
 
     logger.info(
-        # f"{s}"
-        "Jobs running, failed, done, total:\t"
-        f"{len(state_jobs['RUNNING']):0{n_chars}}\t"
+        f"{len(state_jobs['RUNNING']):0{n_chars}}\t\t"
         f"{len(state_jobs['FAILED']):0{n_chars}}\t"
         f"{len(state_jobs['DONE']):0{n_chars}}\t"
         f"{n_jobs}\t"
-        "Duration: "
         f"{str(datetime.timedelta(seconds=int(run_time)))}\n"
-        f"RUNNING: {state_jobs['RUNNING']}\n"
-        f"FAILED: {state_jobs['FAILED']}\n"
-        f"DONE: {state_jobs['DONE']}"
+        f"RUNNING:\t{list(state_jobs['RUNNING'])}\n"
+        f"FAILED:\t\t{list(state_jobs['FAILED'])}\n"
+        f"DONE:\t\t{list(state_jobs['DONE'])}"
     )
 
 
@@ -140,13 +142,16 @@ def monitor_jobs(
         logger.info("There are no jobs to monitor")
         return
 
-    # Add a new line to avoid overwriting the last line of the logger
-    print("\n\n\n", sep="")
-
     job_arrays = ", ".join(
         sorted(set(str(job.job_id).split("_", 1)[0] for job in jobs))
     )
-    logger.info(f"Monitoring {n_jobs} jobs from job arrays {job_arrays}")
+    logger.info(
+        f"Monitoring {n_jobs} job{'s' if len(jobs) > 1 else ''} "
+        f"from job arrays {job_arrays}"
+    )
+    logger.info("Running\tFailed\tDone\tTotal\tDuration")
+    # Add a new lines to avoid overwriting the last line of the logger
+    print("\n\n", sep="")
 
     monitoring_start_time = time.time()
     running_start_time = None
@@ -166,12 +171,14 @@ def monitor_jobs(
 
         failed_job_indices = sorted(state_jobs["FAILED"])
         if len(state_jobs["DONE"]) == len(jobs):
+            clear_last_n_lines(3)
             logger.info(
-                "All jobs finished, duration since first run"
-                f" {str(datetime.timedelta(seconds=int(time.time() - running_start_time)))},"
-                " total duration"
-                f" {str(datetime.timedelta(seconds=int(time.time() - monitoring_start_time)))},"
-                f" jobs {failed_job_indices} failed"
+                "All jobs finished!\n"
+                "Duration since first run:\t"
+                f"{str(datetime.timedelta(seconds=int(time.time() - running_start_time)))}\n"
+                "Total duration:\t\t\t"
+                f"{str(datetime.timedelta(seconds=int(time.time() - monitoring_start_time)))}\n"
+                f"Failed jobs:\t\t\t{failed_job_indices}"
             )
             break
 

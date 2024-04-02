@@ -229,9 +229,49 @@ class IBCClipsFmriDataset(FmriDatasetBase):
                 "train": (0, 325 * 12),
                 "valid": (325 * 12, 325 * 12 + 325 * 3 * 3),
             }
-            start_index, end_index = segment_slices[segment]
+            start_index, end_index = segment_slices[segment[:5]]
             self.brain_features = self.brain_features[start_index:end_index]
             self.labels["images"] = self.labels["images"][start_index:end_index]
+
+            if segment[:5] == "valid" and len(segment) > 5:
+                option = segment[5:]
+
+                # Each session of the validation dataset consists of 3 runs.
+                # These 3 runs show the same images, but in a different order each time.
+                # Images differ between sessions.
+                # However, in a given run, the same image can be seen 2 to 5 times.
+
+                if option == "-dedup":
+                    # The variable segment can be of the form "valid-dedup".
+                    # In this case, we select the first part (TRs 10 to 100)
+                    # of the first run of each validation session.
+                    # We checked that all images seen in this part are different
+                    ranges = [
+                        (
+                            (325 * 3 * i) + 10,
+                            (325 * 3 * i) + 100,
+                        )
+                        for i in range(3)
+                    ]
+                else:
+                    # The variable segment can be of the form "valid2".
+                    # In this case, we will select the second run
+                    # of each validation session only.
+                    selected_run = int(option)
+                    ranges = [
+                        (
+                            (325 * 3 * i) + (325 * (selected_run - 1)),
+                            (325 * 3 * i) + (325 * (selected_run - 1)) + 325,
+                        )
+                        for i in range(3)
+                    ]
+
+                self.brain_features = np.concatenate(
+                    [self.brain_features[r[0] : r[1]] for r in ranges]
+                )
+                self.labels["images"] = np.concatenate(
+                    [self.labels["images"][r[0] : r[1]] for r in ranges]
+                )
 
         super().__init__(self.brain_features, self.labels)
 
@@ -586,7 +626,7 @@ def load_fmridataset(
             data_path=dataset_path,
         )
     elif dataset_id.startswith("ibc_clips"):
-        search = re.search(r".*seg-([a-z]*).*", dataset_id)
+        search = re.search(r".*seg-([a-zA-Z0-9\-]*).*", dataset_id)
         segment = search.group(1) if search else None
         dataset = IBCClipsFmriDataset(
             subject=subject,

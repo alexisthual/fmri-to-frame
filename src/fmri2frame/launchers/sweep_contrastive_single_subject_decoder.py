@@ -10,7 +10,7 @@ import omegaconf
 import submitit
 from hydra.core.hydra_config import HydraConfig
 
-from fmri2frame.scripts.brain_decoder_contrastive import (
+from fmri2frame.scripts.train_brain_decoder_contrastive import (
     train_single_subject_brain_decoder,
 )
 from fmri2frame.scripts.utils import get_logger, monitor_jobs
@@ -23,7 +23,7 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 subject = 4
 train_dataset_ids = ["ibc_clips_seg-train"]
-valid_dataset_ids = ["ibc_clips_seg-valid"]
+valid_dataset_ids = ["ibc_clips_seg-valid-dedup"]
 dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 
 lag = 2
@@ -46,6 +46,7 @@ baseline_config = {
     "dropout": 0.3,
     "n_res_blocks": 2,
     "n_proj_blocks": 1,
+    "alpha": 1,
     "temperature": 0.01,
     "batch_size": 128,
     "lr": 1e-4,
@@ -62,7 +63,9 @@ baseline_config = {
 latent_type = "clip_vision_cls"
 n_augmentations = 20
 baseline_config.update({
+    "dropout": 0.5,
     "temperature": 0.03,
+    "alpha": 0.5,
 })
 
 # Possible fine-tuned values
@@ -74,8 +77,9 @@ finetuned_values = {
     # "n_proj_blocks": [0, 2],
     # "temperature": [0.1, 0.03, 0.003, 0.001, 0.0001],
     # "batch_size": [32, 64, 128, 256, 512, 1024],
-    # "lr": [1e-3, 1e-4, 1e-5],
+    "lr": [1e-3, 1e-5, 1e-6],
     # "weight_decay": [1e-1, 1e-2, 1e-3, 1e-4],
+    # "alpha": [0.1],
 }
 
 # Launch 1 job with baseline config
@@ -96,7 +100,9 @@ checkpoints_path = None
 if checkpoints_path is not None:
     checkpoints_path.mkdir(parents=True, exist_ok=True)
 
-wandb_project_postfix = None
+# wandb_project_postfix = None
+# wandb_project_postfix = "train-clips-train_test-clips-valid1"
+wandb_project_postfix = "train-clips-train_test-clips-valid-dedup"
 # wandb_project_postfix = "train-clips-train-valid_mk-1-2_test-mk-4"
 
 

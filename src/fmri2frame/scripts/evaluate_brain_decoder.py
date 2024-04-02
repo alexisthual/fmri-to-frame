@@ -1,4 +1,5 @@
 import pickle
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -182,6 +183,9 @@ def evaluate_brain_decoder(
         brain_decoder = BrainDecoder(**checkpoint["brain_decoder_params"]).to(device)
         brain_decoder.load_state_dict(checkpoint["brain_decoder_state_dict"])
         brain_decoder.eval()
+
+        with open(Path(decoder_path).parent / "scale.pkl", "rb") as f:
+            scale = pickle.load(f)
     else:
         with open(decoder_path, "rb") as f:
             brain_decoder = pickle.load(f)
@@ -272,18 +276,24 @@ def evaluate_brain_decoder(
         )
 
         predictions = []
+        predictions_reconstruction = []
         with torch.no_grad():
             with torch.cuda.amp.autocast():
                 for brain_features_batch in dataloader:
                     brain_features_batch = brain_features_batch.to(
                         device, non_blocking=True
                     )
-                    _, predicted_latent_features = brain_decoder(brain_features_batch)
-                    # predicted_latent_features_norm = nn.functional.normalize(
-                    #     predicted_latent_features, dim=-1
-                    # )
-                    predictions.append(predicted_latent_features.cpu().numpy())
+                    (
+                        _,
+                        predictions_contrastive_batch,
+                        predictions_reconstruction_batch,
+                    ) = brain_decoder(brain_features_batch)
+                    predictions.append(predictions_contrastive_batch.cpu().numpy())
+                    predictions_reconstruction.append(
+                        predictions_reconstruction_batch.cpu().numpy()
+                    )
         predictions = np.concatenate(predictions)
+        predictions_reconstruction = np.concatenate(predictions_reconstruction)
     else:
         predictions = brain_decoder.predict(
             SimpleImputer().fit_transform(
@@ -314,7 +324,15 @@ def evaluate_brain_decoder(
 
     # Generate captions for each frame
     if should_generate_captions:
-        captions = generate_captions(predictions)
+        if decoder_is_contrastive:
+            prediction_scale = StandardScaler().fit(predictions_reconstruction)
+            captions = generate_captions(
+                scale.inverse_transform(
+                    prediction_scale.transform(predictions_reconstruction)
+                )
+            )
+        else:
+            captions = generate_captions(predictions)
 
         with open(output_path / f"{output_name}_captions.pkl", "wb") as f:
             pickle.dump(captions, f)
@@ -324,6 +342,12 @@ def evaluate_brain_decoder(
     # Store results
     with open(output_path / f"{output_name}_predictions.pkl", "wb") as f:
         pickle.dump(predictions, f)
+
+    if decoder_is_contrastive:
+        with open(
+            output_path / f"{output_name}_predictions_reconstruction.pkl", "wb"
+        ) as f:
+            pickle.dump(predictions_reconstruction, f)
 
     with open(output_path / f"{output_name}_scores.pkl", "wb") as f:
         pickle.dump(retrieval_metrics["scores"], f)

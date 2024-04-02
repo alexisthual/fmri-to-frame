@@ -18,10 +18,10 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 # %%
 # Experiment parameters
 
-# 1. Evaluate brain decoders on individual IBC subjects on clips-train
+# 1. Evaluate brain decoders on individual IBC subjects on runs of clips-valid
 
-subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-dataset_ids = ["ibc_clips_seg-valid"]
+eval_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+dataset_ids = ["ibc_clips_seg-valid1"]
 dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 lag = 2
 window_size = 2
@@ -45,47 +45,50 @@ latent_types = [
 
 args_map = list(
     product(
-        subjects,
+        [4],
         list(
             zip(
-                subjects,
-                np.tile(dataset_ids, (len(subjects), 1)).tolist(),
-                np.tile(dataset_path, len(subjects)).tolist(),
-                np.tile(lag, len(subjects)).tolist(),
-                np.tile(window_size, len(subjects)).tolist(),
-                np.tile(False, len(subjects)).tolist(),  # subject_is_macaque
+                eval_subjects,
+                np.tile(dataset_ids, (len(eval_subjects), 1)).tolist(),
+                np.tile(dataset_path, len(eval_subjects)).tolist(),
+                np.tile(lag, len(eval_subjects)).tolist(),
+                np.tile(window_size, len(eval_subjects)).tolist(),
+                np.tile(False, len(eval_subjects)).tolist(),  # subject_is_macaque
             )
         ),
         latent_types,
     )
 )
 
-train_subjects_str = f"{'-'.join([f'{s:02d}' for s in subjects])}"
+train_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+train_subjects_str = f"{'-'.join([f'{s:02d}' for s in train_subjects])}"
 
+# Paths
 exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
-decoder_is_contrastive = True
 decoders_path = (
     exps_path
     / "decoders"
     / "multi-subject"
-    / "contrastive"
+    / "fused_alpha-10"
     / "clips-train"
     / "clips-train_mm_alpha-0.5"
 )
+decoder_is_contrastive = True
+checkpoint = 5
+
 alignments_path = exps_path / "alignments" / "clips-train_mm_alpha-0.5"
+
 output_path = (
     exps_path
     / "evaluations"
     / "multi-subject"
-    / "contrastive"
+    / "fused_alpha-10"
     / "clips-train"
     / "clips-train_mm_alpha-0.5"
-    / "clips-valid"
+    / "clips-valid1"
 )
-# decoders_path = exps_path / "decoders_single-subject" / "clips-train-valid_mk-1-2"
-# alignments_path = exps_path / "alignments" / "mk-1-2_mm"
-# output_path = exps_path / "evaluations" / "clips-train-valid_mk-1-2" / "mk-4"
 output_path.mkdir(parents=True, exist_ok=True)
+
 
 # 2. Evaluate brain decoders on IBC + Leuven
 
@@ -257,7 +260,7 @@ def eval_brain_decoder_wrapper(args):
         decoder_path = (
             decoders_path
             / f"ref-{reference_subject:02d}_train-{train_subjects_str}_{latent_type}"
-            / "checkpoint_010.pt"
+            / f"checkpoint_{checkpoint:03d}.pt"
         )
     else:
         decoder_path = decoders_path / f"sub-{reference_subject:02d}_{latent_type}.pkl"
@@ -281,7 +284,7 @@ def eval_brain_decoder_wrapper(args):
         selected_indices_right_path=selected_indices_right_path,
         output_name=output_name,
         output_path=output_path,
-        should_generate_captions=False,
+        should_generate_captions=True,
     )
 
 
