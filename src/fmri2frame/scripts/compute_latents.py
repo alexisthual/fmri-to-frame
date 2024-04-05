@@ -507,7 +507,7 @@ def extract_clip_vision_cls(
 
             # Compute CLIP latent representation
             clip_latents = model.encode_image(img)
-            clip_latents /= clip_latents.norm(dim=-1, keepdim=True)
+            # clip_latents /= clip_latents.norm(dim=-1, keepdim=True)
             all_clip_latents.append(
                 clip_latents.squeeze(0).detach().cpu().numpy()
             )
