@@ -33,52 +33,23 @@ cache = "/gpfsscratch/rech/nry/uul79xi/cache"
 # 1. Human subjects
 
 # dataset_ids = ["ibc_clips_seg-train", "ibc_clips_seg-valid"]
-dataset_ids = [
-    # "ibc_clips_seg-train",
-    # "ibc_clips_seg-valid",
-    "ibc_clips_seg-valid-dedup",
-    # "ibc_clips_seg-valid2",
-    # "ibc_clips_seg-valid3",
-    # "ibc_mk_seg-1",
-    # "ibc_mk_seg-2",
-    # "ibc_mk_seg-3",
-    # "ibc_mk_seg-4",
-    # "ibc_mk_seg-5",
-]
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-
-n_augmentations = 1
-
-latent_types = [
-    "clip_vision_cls",
-    # "sd_autokl",
-    # "clip_vision_latents",
-    # "vdvae_encoder_31l_latents",
-]
-
-args_map = list(
-    product(
-        dataset_ids,
-        latent_types,
-        subjects,
-    )
-)
-
-
-# 2. Non-human subjects
-
 # dataset_ids = [
-#     "leuven_mk_seg-1",
-#     "leuven_mk_seg-2",
-#     "leuven_mk_seg-3",
-#     "leuven_mk_seg-4",
-#     "leuven_mk_seg-5",
+#     "ibc_clips_seg-train",
+#     "ibc_clips_seg-valid",
+#     "ibc_clips_seg-valid-dedup",
+#     # "ibc_clips_seg-valid2",
+#     # "ibc_clips_seg-valid3",
+#     "ibc_mk_seg-1",
+#     "ibc_mk_seg-2",
+#     "ibc_mk_seg-3",
+#     "ibc_mk_seg-4",
+#     "ibc_mk_seg-5",
 # ]
-# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
-# subjects = ["Luce", "Jack"]
+# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+# subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+# # subjects = [4]
 
-# n_augmentations = 1
+# n_augmentations = 20
 
 # latent_types = [
 #     "clip_vision_cls",
@@ -94,6 +65,36 @@ args_map = list(
 #         subjects,
 #     )
 # )
+
+
+# 2. Non-human subjects
+
+dataset_ids = [
+    "leuven_mk_seg-1",
+    "leuven_mk_seg-2",
+    "leuven_mk_seg-3",
+    "leuven_mk_seg-4",
+    "leuven_mk_seg-5",
+]
+dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
+subjects = ["Luce", "Jack"]
+
+n_augmentations = 20
+
+latent_types = [
+    "clip_vision_cls",
+    # "sd_autokl",
+    # "clip_vision_latents",
+    # "vdvae_encoder_31l_latents",
+]
+
+args_map = list(
+    product(
+        dataset_ids,
+        latent_types,
+        subjects,
+    )
+)
 
 
 # %%
