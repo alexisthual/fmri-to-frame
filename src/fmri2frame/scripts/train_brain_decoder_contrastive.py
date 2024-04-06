@@ -1,3 +1,4 @@
+import pickle
 from collections import defaultdict
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import torch.nn.functional as F
 import wandb
 from fugw.utils import load_mapping
 from torch.utils.data import DataLoader, Dataset
+from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 from fmri2frame.scripts.brain_decoder_contrastive import BrainDecoder
@@ -268,6 +270,16 @@ def train_decoder(
         drop_last=True,
     )
 
+    # Fit a StandardScaler on the training data
+    scale = StandardScaler()
+    scale.fit(latent_features_train.reshape(-1, out_dim))
+    if checkpoints_path is not None:
+        with open(checkpoints_path / "scale.pkl", "wb") as f:
+            pickle.dump(scale, f)
+    # Store scale values on device
+    m = torch.tensor(scale.mean_).to(device, dtype=torch.float32)
+    s = torch.tensor(scale.scale_).to(device, dtype=torch.float32)
+
     # Training
     train_mixco_losses = []
     train_mse_losses = []
@@ -309,12 +321,12 @@ def train_decoder(
 
                 optimizer.zero_grad()
 
-                # _, predictions_contrastive, predictions_reconstruction = brain_decoder(
-                #     brain_features_mixco
-                # )
                 _, predictions_contrastive, predictions_reconstruction = brain_decoder(
-                    brain_features
+                    brain_features_mixco
                 )
+                # _, predictions_contrastive, predictions_reconstruction = brain_decoder(
+                #     brain_features
+                # )
 
                 # Evaluate mixco loss
                 predictions_contrastive_norm = F.normalize(
@@ -332,14 +344,16 @@ def train_decoder(
                 )
 
                 # Evaluate MSE loss
-                mse_loss = F.mse_loss(predictions_reconstruction, latent_features_norm)
+                mse_loss = F.mse_loss(
+                    predictions_reconstruction,
+                    # standardize latent features
+                    (latent_features - m) / s,
+                )
 
                 # Evaluate symmetrical NCE loss
                 with torch.no_grad():
                     # Need to run a forward with un-augmented brain features
-                    _, predictions_contrastive, predictions_reconstruction = (
-                        brain_decoder(brain_features)
-                    )
+                    _, predictions_contrastive, _ = brain_decoder(brain_features)
                     predictions_contrastive_norm = F.normalize(
                         predictions_contrastive, dim=-1
                     )
@@ -438,7 +452,10 @@ def train_decoder(
                     epoch_val_symm_nce_losses.append(symm_nce_loss.item())
 
                     # Evaluate MSE loss
-                    mse_loss = F.mse_loss(predictions_reconstruction, latent_features)
+                    mse_loss = F.mse_loss(
+                        predictions_reconstruction,
+                        (latent_features - m) / s,
+                    )
                     epoch_val_mse_losses.append(mse_loss.item())
 
                     # Evaluate mixco symmetrical NCE loss
