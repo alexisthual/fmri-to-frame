@@ -32,19 +32,27 @@ batch_size = 32
 
 dataset_ids = [
     "ibc_clips_seg-train",
-    "ibc_clips_seg-valid",
-    "ibc_clips_seg-valid-dedup",
+    # "ibc_clips_seg-valid",
+    # "ibc_clips_seg-valid-dedup",
     # "ibc_clips_seg-valid2",
     # "ibc_clips_seg-valid3",
-    "ibc_mk_seg-1",
-    "ibc_mk_seg-2",
-    "ibc_mk_seg-3",
-    "ibc_mk_seg-4",
-    "ibc_mk_seg-5",
+    # "ibc_mk_seg-1",
+    # "ibc_mk_seg-2",
+    # "ibc_mk_seg-3",
+    # "ibc_mk_seg-4",
+    # "ibc_mk_seg-5",
+    # "leuven_mk_seg-1",
+    # "leuven_mk_seg-2",
+    # "leuven_mk_seg-3",
+    # "leuven_mk_seg-4",
+    # "leuven_mk_seg-5",
 ]
 
 dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 subject = 4
+# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
+# subject = "Luce"
+
 latent_type = "clip_vision_cls"
 model_path = "/gpfsstore/rech/nry/uul79xi/models/clip"
 seed = 0
@@ -113,7 +121,7 @@ def launch_jobs(config):
         # cpus_per_task=10,
         # gpus_per_node=2,
         # JZ config for computing latents (clip_vision_latents, vdvae)
-        slurm_time="06:00:00",
+        slurm_time="00:40:00",
         slurm_account="nry@v100",
         slurm_partition="gpu_p13",
         cpus_per_task=40,

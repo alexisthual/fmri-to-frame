@@ -2,7 +2,6 @@
 # coding: utf-8
 
 # %%
-from itertools import combinations, product
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,7 +11,7 @@ import submitit
 from hydra.core.hydra_config import HydraConfig
 
 from fmri2frame.scripts.train_brain_decoder_contrastive import (
-    train_multi_subject_brain_decoder,
+    train_single_subject_brain_decoder,
 )
 from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
@@ -20,30 +19,19 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 # %%
 # Experiment parameters
 
-# 1. Sweep model parameters on one subject from the IBC dataset using Clips stimuli
-
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-
-all_training_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 train_dataset_ids = [
     "ibc_clips_seg-train",
     "ibc_clips_seg-valid",
     "ibc_mk_seg-1",
     "ibc_mk_seg-2",
     "ibc_mk_seg-3",
-    # "ibc_mk_seg-4",
-    # "ibc_mk_seg-5",
 ]
-
-reference_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-align = True
-
 valid_dataset_ids = [
-    # "ibc_clips_seg-valid-dedup",
-    # "ibc_clips_seg-valid",
-    # "ibc_mk_seg-1",
+    # "ibc_clips_seg-valid-dedup"
     "ibc_mk_seg-4",
+    "ibc_mk_seg-5",
 ]
+dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
 
 lag = 2
 window_size = 2
@@ -58,7 +46,6 @@ pretrained_models = SimpleNamespace(
 )
 cache = "/gpfsscratch/rech/nry/uul79xi/cache"
 
-
 # Baseline configuration
 baseline_config = {
     "hidden_size_backbone": 512,
@@ -66,108 +53,80 @@ baseline_config = {
     "dropout": 0.3,
     "n_res_blocks": 2,
     "n_proj_blocks": 1,
+    # "alpha": 1,
     "temperature": 0.01,
     "batch_size": 128,
     "lr": 1e-4,
-    "weight_decay": 0,
+    "weight_decay": 1e-1,
     "n_epochs": 20,
 }
 
 # Baseline updates determined from sweep runs
-# for clip_vision_latents
+# For clip_vision_latents
 # latent_type = "clip_vision_latents"
-# baseline_config.update({
-#     "temperature": 0.005,
-#     "dropout": 0.7,
-# })
+# baseline_config.update({})
 
-# for clip_vision_cls
+# For clip_vision_cls
 latent_type = "clip_vision_cls"
 n_augmentations = 20
-baseline_config.update(
-    {
-        "temperature": 0.03,
-        "lr": 1e-4,
-        "dropout": 0.8,
-        "batch_size": 128,
-    }
-)
+baseline_config.update({
+    "temperature": 0.03,
+    "dropout": 0.7,
+    # "alpha": 0.5,
+})
 
 
 exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
-alignments_path = exps_path / "alignments" / "clips-train_mm_alpha-0.5"
-# alignments_path = exps_path / "alignments" / "clips-train-valid_mk-1-2_mm_alpha-0.5"
-
-# train_subjects_str = f"{'-'.join([f'{s:02d}' for s in train_subjects])}"
 
 # wandb_project_postfix = None
-wandb_project_postfix = "train-clips-train-valid-mk-1-2-3_valid-mk-4"
-# wandb_project_postfix = "train-clips-train_test-clips-valid"
-# wandb_project_postfix = "train-clips-train-valid_mk-1-2_test-mk-4"
-# wandb_project_postfix = "train-clips-train-valid_mk-2-3-4-5_test-mk-1"
-# wandb_project_postfix = "train-clips-train_test-clips-valid"
+# wandb_project_postfix = "train-clips-train_test-clips-valid1"
+# wandb_project_postfix = "train-clips-train_test-clips-valid-dedup"
+wandb_project_postfix = "train-clips-train-valid_mk-1-2-3_test-mk-4-5"
 
-args_map = product(
-    reference_subjects,
-    combinations(
-        all_training_subjects,
-        # len(all_training_subjects) - 1
-        len(all_training_subjects)
-    )
-)
+
+# 1. Train decoder on each subject
+
+subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+args_map = subjects
 
 
 # %%
 def train_brain_decoder_wrapper(args):
     """Train decoder in one individual."""
-    (reference_subject, train_subjects) = args
-    valid_subject = reference_subject
+    subject = args
+    print(f"Train decoder {subject} {latent_type}")
 
-    train_subjects_str = f"{'-'.join([f'{s:02d}' for s in train_subjects])}"
-
-    print(
-        f"Train multi-subject decoder {reference_subject} {latent_type}"
-    )
-
-    checkpoints_path = None
+    # checkpoints_path = None
     checkpoints_path = (
         exps_path
         / "decoders"
-        / "multi-subject"
+        / "single-subject"
+        # decoder type
         / "contrastive"
-        # brain decoder training data
-        # / "clips-train"
-        / "clips-train-valid-mk-1-2-3"
-        # / "clips-train-valid_mk-2-3-4-5"
-        # alignment plans
-        / "clips-train_mm_alpha-0.5"
-        # / "clips-train-valid_mk-1-2_mm_alpha-0.5"
-        # reference subject, training subjects and latent type
-        / f"ref-{reference_subject:02d}_train-{train_subjects_str}_{latent_type}"
+        # / f"fused_alpha-{run_config['alpha']}"
+        # training data
+        / "clips-train"
+        # # alignment data
+        # / "clips-train-valid_mk-1-2_mm"
+        / f"sub-{subject:02d}_{latent_type}"
     )
     if checkpoints_path is not None:
         checkpoints_path.mkdir(parents=True, exist_ok=True)
 
-    wandb_tags = []
-
-    train_multi_subject_brain_decoder(
-        reference_subject=reference_subject,
-        alignments_path=alignments_path,
-        align=align,
+    train_single_subject_brain_decoder(
         train_dataset_ids=train_dataset_ids,
-        train_subjects=train_subjects,
         valid_dataset_ids=valid_dataset_ids,
-        valid_subject=valid_subject,
         dataset_path=dataset_path,
+        subject=subject,
         lag=lag,
         window_size=window_size,
-        latent_type=latent_type,
         pretrained_models_path=pretrained_models,
+        latent_type=latent_type,
         n_augmentations=n_augmentations,
         cache=cache,
         # model + training parameters
         wandb_project_postfix=wandb_project_postfix,
-        wandb_tags=wandb_tags,
+        # wandb_tags=wandb_tags,
         **baseline_config,
         checkpoints_path=checkpoints_path,
     )
@@ -194,11 +153,11 @@ def launch_jobs(config):
     )
     executor.update_parameters(
         slurm_job_name="train_decoder",
-        slurm_time="03:00:00",
+        slurm_time="00:20:00",
         # Jean Zay cluster config
         slurm_account="nry@v100",
         slurm_partition="gpu_p13",
-        cpus_per_task=30,
+        cpus_per_task=20,
         gpus_per_node=1,
     )
 
