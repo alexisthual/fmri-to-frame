@@ -78,23 +78,23 @@ class BrainDecoder(nn.Module):
         self.projector_contrastive = nn.Sequential(*projector_layers_contrastive)
 
         # Reconstruction projector
-        projector_layers_reconstruction = []
-        for _ in range(n_proj_blocks):
-            projector_layers_reconstruction.extend(
-                [
-                    nn.LayerNorm(hidden_size_projector),
-                    nn.GELU(),
-                    nn.Linear(hidden_size_projector, hidden_size_projector),
-                ]
-            )
-        projector_layers_reconstruction.extend(
-            [
-                nn.LayerNorm(hidden_size_projector),
-                nn.GELU(),
-                nn.Linear(hidden_size_projector, out_dim),
-            ]
-        )
-        self.projector_reconstruction = nn.Sequential(*projector_layers_reconstruction)
+        # projector_layers_reconstruction = []
+        # for _ in range(n_proj_blocks):
+        #     projector_layers_reconstruction.extend(
+        #         [
+        #             nn.LayerNorm(hidden_size_projector),
+        #             nn.GELU(),
+        #             nn.Linear(hidden_size_projector, hidden_size_projector),
+        #         ]
+        #     )
+        # projector_layers_reconstruction.extend(
+        #     [
+        #         nn.LayerNorm(hidden_size_projector),
+        #         nn.GELU(),
+        #         nn.Linear(hidden_size_projector, out_dim),
+        #     ]
+        # )
+        # self.projector_reconstruction = nn.Sequential(*projector_layers_reconstruction)
 
     def forward(self, x):
         x = self.lin0(x)
@@ -108,4 +108,5 @@ class BrainDecoder(nn.Module):
 
         x = self.lin1(x)
 
-        return x, self.projector_contrastive(x), self.projector_reconstruction(x)
+        # return x, self.projector_contrastive(x), self.projector_reconstruction(x)
+        return x, self.projector_contrastive(x)

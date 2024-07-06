@@ -277,23 +277,23 @@ def train_decoder(
         with open(checkpoints_path / "scale.pkl", "wb") as f:
             pickle.dump(scale, f)
     # Store scale values on device
-    m = torch.tensor(scale.mean_).to(device, dtype=torch.float32)
-    s = torch.tensor(scale.scale_).to(device, dtype=torch.float32)
+    # m = torch.tensor(scale.mean_).to(device, dtype=torch.float32)
+    # s = torch.tensor(scale.scale_).to(device, dtype=torch.float32)
 
     # Training
     train_mixco_losses = []
-    train_mse_losses = []
-    train_losses = []
+    # train_mse_losses = []
+    # train_losses = []
     train_symm_nce_losses = []
     lrs = []
     val_mixco_losses = []
-    val_mse_losses = []
-    val_losses = []
+    # val_mse_losses = []
+    # val_losses = []
     val_symm_nce_losses = []
     val_median_rank_contrastive = []
     val_topk_acc_contrastive = defaultdict(list)
-    val_median_rank_reconstruction = []
-    val_topk_acc_reconstruction = defaultdict(list)
+    # val_median_rank_reconstruction = []
+    # val_topk_acc_reconstruction = defaultdict(list)
 
     negatives = torch.from_numpy(
         latent_features_valid
@@ -321,12 +321,10 @@ def train_decoder(
 
                 optimizer.zero_grad()
 
-                _, predictions_contrastive, predictions_reconstruction = brain_decoder(
+                # _, predictions_contrastive, predictions_reconstruction = brain_decoder(
+                _, predictions_contrastive = brain_decoder(
                     brain_features_mixco
                 )
-                # _, predictions_contrastive, predictions_reconstruction = brain_decoder(
-                #     brain_features
-                # )
 
                 # Evaluate mixco loss
                 predictions_contrastive_norm = F.normalize(
@@ -344,16 +342,16 @@ def train_decoder(
                 )
 
                 # Evaluate MSE loss
-                mse_loss = F.mse_loss(
-                    predictions_reconstruction,
-                    # standardize latent features
-                    (latent_features - m) / s,
-                )
+                # mse_loss = F.mse_loss(
+                #     predictions_reconstruction,
+                #     # standardize latent features
+                #     (latent_features - m) / s,
+                # )
 
                 # Evaluate symmetrical NCE loss
                 with torch.no_grad():
                     # Need to run a forward with un-augmented brain features
-                    _, predictions_contrastive, _ = brain_decoder(brain_features)
+                    _, predictions_contrastive = brain_decoder(brain_features)
                     predictions_contrastive_norm = F.normalize(
                         predictions_contrastive, dim=-1
                     )
@@ -365,28 +363,28 @@ def train_decoder(
                     )
 
                 # Backpropagate
-                loss = (1 - alpha) * mixco_loss + alpha * mse_loss
-                loss.backward()
+                # loss = (1 - alpha) * mixco_loss + alpha * mse_loss
+                mixco_loss.backward()
                 optimizer.step()
 
             train_mixco_losses.append(mixco_loss.item())
-            train_mse_losses.append(mse_loss.item())
+            # train_mse_losses.append(mse_loss.item())
             train_symm_nce_losses.append(symm_nce_loss.item())
-            train_losses.append(loss.item())
+            # train_losses.append(loss.item())
             lrs.append(optimizer.param_groups[-1]["lr"])
 
         # Validation step
         brain_decoder.eval()
         epoch_val_mixco_losses = []
-        epoch_val_mse_losses = []
-        epoch_val_losses = []
+        # epoch_val_mse_losses = []
+        # epoch_val_losses = []
         epoch_val_symm_nce_losses = []
         epoch_median_rank_contrastive = []
         epoch_topk_acc_contrastive = defaultdict(list)
         epoch_ranks_contrastive = []
-        epoch_median_rank_reconstruction = []
-        epoch_topk_acc_reconstruction = defaultdict(list)
-        epoch_ranks_reconstruction = []
+        # epoch_median_rank_reconstruction = []
+        # epoch_topk_acc_reconstruction = defaultdict(list)
+        # epoch_ranks_reconstruction = []
         top_k = [1, 5, 10, int(len(negatives) / 10), int(len(negatives) / 5)]
 
         for val_i, (brain_features, latent_features) in enumerate(val_dl):
@@ -395,7 +393,8 @@ def train_decoder(
                     brain_features = brain_features.to(device, non_blocking=True)
                     latent_features = latent_features.to(device, non_blocking=True)
 
-                    _, predictions_contrastive, predictions_reconstruction = (
+                    # _, predictions_contrastive, predictions_reconstruction = (
+                    _, predictions_contrastive = (
                         brain_decoder(brain_features)
                     )
 
@@ -420,24 +419,24 @@ def train_decoder(
                     epoch_ranks_contrastive.extend(ranks)
 
                     # Evaluate retrieval metrics on predictions
-                    # from prediction head
-                    retrieval_metrics = compute_retrieval_metrics(
-                        predictions_reconstruction,
-                        latent_features,
-                        negatives,
-                        return_scores=True,
-                        top_k=top_k,
-                    )
-                    epoch_median_rank_reconstruction.append(
-                        retrieval_metrics["relative_median_rank"]
-                    )
-                    for k in top_k:
-                        epoch_topk_acc_reconstruction[k].append(
-                            retrieval_metrics[f"top-{k}_accuracy"]
-                        )
-                    all_scores = retrieval_metrics["scores"].cpu().numpy()
-                    ranks = (all_scores > all_scores[:, [0]]).sum(axis=1)
-                    epoch_ranks_reconstruction.extend(ranks)
+                    # from reconstruction head
+                    # retrieval_metrics = compute_retrieval_metrics(
+                    #     predictions_reconstruction,
+                    #     latent_features,
+                    #     negatives,
+                    #     return_scores=True,
+                    #     top_k=top_k,
+                    # )
+                    # epoch_median_rank_reconstruction.append(
+                    #     retrieval_metrics["relative_median_rank"]
+                    # )
+                    # for k in top_k:
+                    #     epoch_topk_acc_reconstruction[k].append(
+                    #         retrieval_metrics[f"top-{k}_accuracy"]
+                    #     )
+                    # all_scores = retrieval_metrics["scores"].cpu().numpy()
+                    # ranks = (all_scores > all_scores[:, [0]]).sum(axis=1)
+                    # epoch_ranks_reconstruction.extend(ranks)
 
                     # Evaluate symmetrical NCE loss
                     predictions_contrastive_norm = F.normalize(
@@ -452,11 +451,11 @@ def train_decoder(
                     epoch_val_symm_nce_losses.append(symm_nce_loss.item())
 
                     # Evaluate MSE loss
-                    mse_loss = F.mse_loss(
-                        predictions_reconstruction,
-                        (latent_features - m) / s,
-                    )
-                    epoch_val_mse_losses.append(mse_loss.item())
+                    # mse_loss = F.mse_loss(
+                    #     predictions_reconstruction,
+                    #     (latent_features - m) / s,
+                    # )
+                    # epoch_val_mse_losses.append(mse_loss.item())
 
                     # Evaluate mixco symmetrical NCE loss
                     (
@@ -466,7 +465,8 @@ def train_decoder(
                         select,
                     ) = mixco_sample_augmentation(brain_features)
 
-                    _, predictions_contrastive, predictions_reconstruction = (
+                    # _, predictions_contrastive, predictions_reconstruction = (
+                    _, predictions_contrastive = (
                         brain_decoder(brain_features_mixco)
                     )
 
@@ -485,19 +485,19 @@ def train_decoder(
                     epoch_val_mixco_losses.append(mixco_loss.item())
 
                     # Evaluate global loss
-                    epoch_val_losses.append((mixco_loss + alpha * mse_loss).item())
+                    # epoch_val_losses.append((mixco_loss + alpha * mse_loss).item())
 
         # Log training metrics
         val_mixco_losses.append(epoch_val_mixco_losses)
-        val_mse_losses.append(epoch_val_mse_losses)
-        val_losses.append(epoch_val_losses)
+        # val_mse_losses.append(epoch_val_mse_losses)
+        # val_losses.append(epoch_val_losses)
         val_symm_nce_losses.append(epoch_val_symm_nce_losses)
         val_median_rank_contrastive.append(epoch_median_rank_contrastive)
         for k in top_k:
             val_topk_acc_contrastive[k].append(epoch_topk_acc_contrastive[k])
-        val_median_rank_reconstruction.append(epoch_median_rank_reconstruction)
-        for k in top_k:
-            val_topk_acc_reconstruction[k].append(epoch_topk_acc_reconstruction[k])
+        # val_median_rank_reconstruction.append(epoch_median_rank_reconstruction)
+        # for k in top_k:
+        #     val_topk_acc_reconstruction[k].append(epoch_topk_acc_reconstruction[k])
 
         run.config.update({"n_epochs": len(val_mixco_losses)}, allow_val_change=True)
         run.config.update({"n_epochs": len(val_mixco_losses)}, allow_val_change=True)
@@ -508,31 +508,31 @@ def train_decoder(
             {
                 **{
                     "train/mixco_loss": np.mean(train_mixco_losses[-1]),
-                    "train/mse_loss": np.mean(train_mse_losses[-1]),
-                    "train/loss": np.mean(train_losses[-1]),
+                    # "train/mse_loss": np.mean(train_mse_losses[-1]),
+                    # "train/loss": np.mean(train_losses[-1]),
                     "train/symm_nce_loss": np.mean(train_symm_nce_losses[-1]),
                     "train/lr": lrs[-1],
                     "val/mixco_loss": np.mean(val_mixco_losses[-1]),
-                    "val/mse_loss": np.mean(val_mse_losses[-1]),
-                    "val/loss": np.mean(val_losses[-1]),
+                    # "val/mse_loss": np.mean(val_mse_losses[-1]),
+                    # "val/loss": np.mean(val_losses[-1]),
                     "val/symm_nce_loss": np.mean(val_symm_nce_losses[-1]),
-                    "val/cont/median_rank": np.mean(val_median_rank_contrastive[-1]),
-                    "val/cont/ranks": wandb.Histogram(
+                    "val/median_rank": np.mean(val_median_rank_contrastive[-1]),
+                    "val/ranks": wandb.Histogram(
                         np.array(epoch_ranks_contrastive), num_bins=100
                     ),
-                    "val/reco/median_rank": np.mean(val_median_rank_reconstruction[-1]),
-                    "val/reco/ranks": wandb.Histogram(
-                        np.array(epoch_ranks_reconstruction), num_bins=100
-                    ),
+                    # "val/reco/median_rank": np.mean(val_median_rank_reconstruction[-1]),
+                    # "val/reco/ranks": wandb.Histogram(
+                    #     np.array(epoch_ranks_reconstruction), num_bins=100
+                    # ),
                 },
                 **{
-                    f"val/cont/top-{k}_acc": np.mean(val_topk_acc_contrastive[k][-1])
+                    f"val/top-{k}_acc": np.mean(val_topk_acc_contrastive[k][-1])
                     for k in top_k
                 },
-                **{
-                    f"val/reco/top-{k}_acc": np.mean(val_topk_acc_reconstruction[k][-1])
-                    for k in top_k
-                },
+                # **{
+                #     f"val/reco/top-{k}_acc": np.mean(val_topk_acc_reconstruction[k][-1])
+                #     for k in top_k
+                # },
             }
         )
 
@@ -630,7 +630,7 @@ def train_single_subject_brain_decoder(
         brain_features_valid,
         latent_features_valid,
         wandb_project=(
-            f"inter-species-sweep-single-{latent_type}-sub-{subject:02d}"
+            f"iss_single_{latent_type}_sub-{subject:02d}"
             + (f"_{wandb_project_postfix}" if wandb_project_postfix is not None else "")
         ),
         wandb_tags=wandb_tags,
@@ -854,10 +854,10 @@ def train_multi_subject_brain_decoder(
         brain_features_valid,
         latent_features_valid,
         wandb_project=(
-            "inter-species-sweep-multi-"
-            f"{'aligned' if align else 'unaligned'}-"
-            f"{latent_type}-"
-            f"ref-sub-{reference_subject:02d}-"
+            "iss_multi_"
+            f"{'aligned' if align else 'unaligned'}_"
+            f"{latent_type}_"
+            f"ref-sub-{reference_subject:02d}_"
             f"valid-sub-{valid_subject:02d}"
             + (f"_{wandb_project_postfix}" if wandb_project_postfix is not None else "")
         ),
