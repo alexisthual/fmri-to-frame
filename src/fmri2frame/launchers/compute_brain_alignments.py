@@ -18,59 +18,59 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 # %%
 # Experiment parameters
 
-alignments_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species/alignments")
+alignments_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/inter-species/alignments")
 
 # %%
 # 1. Setup for aligning all pairs of IBC subjects
 
-source_datasets = [
-    "ibc_clips_seg-train",
-    # "ibc_clips_seg-valid",
-    # "ibc_mk_seg-1",
-    # "ibc_mk_seg-2",
-    # "ibc_mk_seg-3",
-    # "ibc_mk_seg-4",
-]
-source_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-source_is_macaque = False
+# source_datasets = [
+#     "ibc_clips_seg-train",
+#     # "ibc_clips_seg-valid",
+#     # "ibc_mk_seg-1",
+#     # "ibc_mk_seg-2",
+#     # "ibc_mk_seg-3",
+#     # "ibc_mk_seg-4",
+# ]
+# source_dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/ibc"
+# source_is_macaque = False
 
-target_datasets = [
-    "ibc_clips_seg-train",
-    # "ibc_clips_seg-valid",
-    # "ibc_mk_seg-1",
-    # "ibc_mk_seg-2",
-    # "ibc_mk_seg-3",
-    # "ibc_mk_seg-4",
-]
-target_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-target_is_macaque = False
+# target_datasets = [
+#     "ibc_clips_seg-train",
+#     # "ibc_clips_seg-valid",
+#     # "ibc_mk_seg-1",
+#     # "ibc_mk_seg-2",
+#     # "ibc_mk_seg-3",
+#     # "ibc_mk_seg-4",
+# ]
+# target_dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/ibc"
+# target_is_macaque = False
 
-alpha = 0.5
-eps = 1e-4
-rho = 1
-reg_mode = "joint"
-divergence = "kl"
-solver = "mm"
-# solver = "sinkhorn"
+# alpha = 0.5
+# eps = 1e-4
+# rho = 1
+# reg_mode = "joint"
+# divergence = "kl"
+# solver = "mm"
+# # solver = "sinkhorn"
 
-ibc_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-# ibc_subjects = [4, 15]
-# args_map = list(combinations(ibc_subjects, 2))
-# args_map = list(product(ibc_subjects, ibc_subjects))
-args_map = list(
-    product(
-        ibc_subjects,
-        ibc_subjects,
-        [alpha],
-        [rho],
-        [reg_mode],
-    )
-)
+# ibc_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+# # ibc_subjects = [4, 15]
+# # args_map = list(combinations(ibc_subjects, 2))
+# # args_map = list(product(ibc_subjects, ibc_subjects))
+# args_map = list(
+#     product(
+#         ibc_subjects,
+#         ibc_subjects,
+#         [alpha],
+#         [rho],
+#         [reg_mode],
+#     )
+# )
 
 
-def get_output_name(source_subject, target_subject):
-    """Return output name."""
-    return f"sub-{source_subject:02d}_sub-{target_subject:02d}"
+# def get_output_name(source_subject, target_subject):
+#     """Return output name."""
+#     return f"sub-{source_subject:02d}_sub-{target_subject:02d}"
 
 
 # Outdated
@@ -82,72 +82,72 @@ def get_output_name(source_subject, target_subject):
 # %%
 # 2. Setup for aligning all pairs of IBC humans and Leuven macaques
 
-# source_datasets = [
-#     "leuven_mk_seg-1",
-#     "leuven_mk_seg-2",
-#     "leuven_mk_seg-3",
-#     # "leuven_mk_seg-4",
-#     # "leuven_mk_seg-5",
-# ]
-# source_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
-# source_subjects = ["Luce", "Jack"]
-# source_is_macaque = True
+source_datasets = [
+    "leuven_mk_seg-1",
+    "leuven_mk_seg-2",
+    "leuven_mk_seg-3",
+    # "leuven_mk_seg-4",
+    # "leuven_mk_seg-5",
+]
+source_dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/leuven"
+source_subjects = ["Luce", "Jack"]
+source_is_macaque = True
 
-# target_datasets = [
-#     "ibc_mk_seg-1",
-#     "ibc_mk_seg-2",
-#     "ibc_mk_seg-3",
-#     # "ibc_mk_seg-4",
-#     # "ibc_mk_seg-5",
-# ]
-# target_dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-# # target_subjects = [4, 11]
-# target_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-# target_is_macaque = False
+target_datasets = [
+    "ibc_mk_seg-1",
+    "ibc_mk_seg-2",
+    "ibc_mk_seg-3",
+    # "ibc_mk_seg-4",
+    # "ibc_mk_seg-5",
+]
+target_dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/ibc"
+# target_subjects = [4, 11]
+target_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+target_is_macaque = False
 
-# # alpha = 0.5
-# alphas = [
-#     # 0.0, 0.25, 0.5, 0.75, 1.0,
-#     0.5,
-# ]
-# eps = 100
-# # rho = 1e8
-# # rho = 1e9
-# # rhos = [1e8, 2e8, 3e8, 4e8, 5e8, 6e8, 7e8, 8e8, 9e8, 1e9]
-# # fmt: off
-# rhos = [
-#     # 1e7, 2e7, 3e7, 4e7, 5e7, 6e7, 7e7, 8e7, 9e7,
-#     # 1e8, 2e8, 3e8, 4e8, 5e8, 6e8, 7e8, 8e8, 9e8,
-#     # 1e9,
-#     #
-#     # 1e7, 3e7,
-#     # 1e8, 3e8,
-#     # 1e9, 3e9,
-#     #
-#     1e9,
-# ]
-# # fmt: on
-# reg_modes = [
-#     "joint",
-#     "independent",
-# ]
-# divergence = "l2"
-# solver = "mm"
+# alpha = 0.5
+alphas = [
+    # 0.0, 0.25, 0.5, 0.75, 1.0,
+    0.5,
+]
+eps = 100
+# rho = 1e8
+# rho = 1e9
+# rhos = [1e8, 2e8, 3e8, 4e8, 5e8, 6e8, 7e8, 8e8, 9e8, 1e9]
+# fmt: off
+rhos = [
+    # 1e7, 2e7, 3e7, 4e7, 5e7, 6e7, 7e7, 8e7, 9e7,
+    # 1e8, 2e8, 3e8, 4e8, 5e8, 6e8, 7e8, 8e8, 9e8,
+    # 1e9,
+    #
+    # 1e7, 3e7,
+    # 1e8, 3e8,
+    # 1e9, 3e9,
+    #
+    1e9,
+]
+# fmt: on
+reg_modes = [
+    "joint",
+    "independent",
+]
+divergence = "l2"
+solver = "mm"
 
-# args_map = list(
-#     product(
-#         source_subjects,
-#         target_subjects,
-#         alphas,
-#         rhos,
-#         reg_modes,
-#     )
-# )
+args_map = list(
+    product(
+        source_subjects,
+        target_subjects,
+        alphas,
+        rhos,
+        reg_modes,
+    )
+)
 
 
-# def get_output_name(source_subject, target_subject):
-#     """Return output name."""
-#     return f"{source_subject}_sub-{target_subject:02d}"
+def get_output_name(source_subject, target_subject):
+    """Return output name."""
+    return f"{source_subject}_sub-{target_subject:02d}"
 
 
 # %%
@@ -163,8 +163,8 @@ def compute_alignment_wrapper(args):
     output_path = (
         alignments_path
         / (
-            f"clips-train_{solver}_"
-            # f"mk-1-2-3_{solver}_"
+            # f"clips-train_{solver}_"
+            f"mk-1-2-3_{solver}_"
             f"div-{divergence}_alpha-{alpha}_rho-{rho:.1e}_eps-{eps}_reg-{reg_mode}"
         )
     )

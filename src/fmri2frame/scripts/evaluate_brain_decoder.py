@@ -276,7 +276,7 @@ def evaluate_brain_decoder(
         )
 
         predictions = []
-        predictions_reconstruction = []
+        # predictions_reconstruction = []
         with torch.no_grad():
             with torch.cuda.amp.autocast():
                 for brain_features_batch in dataloader:
@@ -286,14 +286,14 @@ def evaluate_brain_decoder(
                     (
                         _,
                         predictions_contrastive_batch,
-                        predictions_reconstruction_batch,
+                        # predictions_reconstruction_batch,
                     ) = brain_decoder(brain_features_batch)
                     predictions.append(predictions_contrastive_batch.cpu().numpy())
-                    predictions_reconstruction.append(
-                        predictions_reconstruction_batch.cpu().numpy()
-                    )
+                    # predictions_reconstruction.append(
+                    #     predictions_reconstruction_batch.cpu().numpy()
+                    # )
         predictions = np.concatenate(predictions)
-        predictions_reconstruction = np.concatenate(predictions_reconstruction)
+        # predictions_reconstruction = np.concatenate(predictions_reconstruction)
     else:
         predictions = brain_decoder.predict(
             SimpleImputer().fit_transform(
@@ -325,10 +325,11 @@ def evaluate_brain_decoder(
     # Generate captions for each frame
     if should_generate_captions:
         if decoder_is_contrastive:
-            prediction_scale = StandardScaler().fit(predictions_reconstruction)
             captions = generate_captions(
                 scale.inverse_transform(
-                    prediction_scale.transform(predictions_reconstruction)
+                    StandardScaler().fit_transform(
+                        predictions
+                    )
                 )
             )
         else:
@@ -343,11 +344,11 @@ def evaluate_brain_decoder(
     with open(output_path / f"{output_name}_predictions.pkl", "wb") as f:
         pickle.dump(predictions, f)
 
-    if decoder_is_contrastive:
-        with open(
-            output_path / f"{output_name}_predictions_reconstruction.pkl", "wb"
-        ) as f:
-            pickle.dump(predictions_reconstruction, f)
+    # if decoder_is_contrastive:
+    #     with open(
+    #         output_path / f"{output_name}_predictions_reconstruction.pkl", "wb"
+    #     ) as f:
+    #         pickle.dump(predictions_reconstruction, f)
 
     with open(output_path / f"{output_name}_scores.pkl", "wb") as f:
         pickle.dump(retrieval_metrics["scores"], f)

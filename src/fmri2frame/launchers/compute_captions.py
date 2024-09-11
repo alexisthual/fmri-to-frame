@@ -20,10 +20,10 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 # %%
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/clip",
+        "sd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/stable_diffusion",
+        "vd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/versatile_diffusion",
+        "vdvae": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/vdvae",
     }
 )
 
@@ -32,15 +32,15 @@ batch_size = 32
 
 dataset_ids = [
     "ibc_clips_seg-train",
-    # "ibc_clips_seg-valid",
-    # "ibc_clips_seg-valid-dedup",
+    "ibc_clips_seg-valid",
+    "ibc_clips_seg-valid-dedup",
     # "ibc_clips_seg-valid2",
     # "ibc_clips_seg-valid3",
-    # "ibc_mk_seg-1",
-    # "ibc_mk_seg-2",
-    # "ibc_mk_seg-3",
-    # "ibc_mk_seg-4",
-    # "ibc_mk_seg-5",
+    "ibc_mk_seg-1",
+    "ibc_mk_seg-2",
+    "ibc_mk_seg-3",
+    "ibc_mk_seg-4",
+    "ibc_mk_seg-5",
     # "leuven_mk_seg-1",
     # "leuven_mk_seg-2",
     # "leuven_mk_seg-3",
@@ -48,18 +48,18 @@ dataset_ids = [
     # "leuven_mk_seg-5",
 ]
 
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/ibc"
 subject = 4
-# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
+# dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/leuven"
 # subject = "Luce"
 
 latent_type = "clip_vision_cls"
-model_path = "/gpfsstore/rech/nry/uul79xi/models/clip"
+model_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/clip"
 seed = 0
 batch_size = 32
-cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
 
-output_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species/captions")
+output_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/inter-species/captions")
 output_path.mkdir(exist_ok=True, parents=True)
 
 args_map = dataset_ids

@@ -27,20 +27,20 @@ dataset_ids = [
     "ibc_mk_seg-1",
     "ibc_mk_seg-2",
 ]
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+dataset_path = "/lustre/fsstor/projects/rech/nry/uul79xi/datasets/ibc"
 
 lag = 2
 window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/gpfsstore/rech/nry/uul79xi/models",
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsstor/projects/rech/nry/uul79xi/models/clip",
+        "sd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/stable_diffusion",
+        "vd": "/lustre/fsstor/projects/rech/nry/uul79xi/models",
+        "vdvae": "/lustre/fsstor/projects/rech/nry/uul79xi/models/vdvae",
     }
 )
-cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
 
 latent_types = [
     "clip_vision_cls",
@@ -56,7 +56,7 @@ args_map = list(
     )
 )
 
-exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
+exps_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/inter-species")
 # alignments_path = exps_path / "alignments" / "clips-train_mm"
 alignments_path = exps_path / "alignments" / "clips-train-valid_mk-1-2_mm"
 # output_path = exps_path / "decoders_multi-subject" / "clips-train"

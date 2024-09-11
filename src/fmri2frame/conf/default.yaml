@@ -20,6 +20,6 @@ paths:
 
 # Paths to pre-trained models
 pretrained_models:
-  vdvae: /gpfsstore/rech/nry/uul79xi/data/vdvae
-  vd: /gpfsstore/rech/nry/uul79xi/data
-  sd: /gpfsstore/rech/nry/uul79xi/data/stable_diffusion
+  vdvae: /lustre/fsn1/projects/rech/nry/uul79xi/store/models/vdvae
+  vd: /lustre/fsn1/projects/rech/nry/uul79xi/store/models
+  sd: /lustre/fsn1/projects/rech/nry/uul79xi/store/models/stable_diffusion

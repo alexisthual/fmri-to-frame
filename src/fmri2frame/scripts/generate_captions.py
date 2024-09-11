@@ -36,7 +36,7 @@ class ClipCaptionModel(nn.Module):
         self.prefix_length = prefix_length
         self.gpt = GPT2LMHeadModel.from_pretrained(
             "gpt2",
-            cache_dir="/gpfsstore/rech/nry/uul79xi/huggingface",
+            cache_dir="/lustre/fsn1/projects/rech/nry/uul79xi/store/huggingface",
         )
         self.gpt_embedding_size = self.gpt.transformer.wte.weight.shape[1]
         if prefix_length > 10:  # not enough memory
@@ -294,11 +294,11 @@ def generate2(
 def generate_captions(predictions, device=torch.device("cuda:0")):
     tokenizer = GPT2Tokenizer.from_pretrained(
         "gpt2",
-        cache_dir="/gpfsstore/rech/nry/uul79xi/huggingface",
+        cache_dir="/lustre/fsn1/projects/rech/nry/uul79xi/store/huggingface",
     )
 
     clipcap_model_path = (
-        Path("/gpfsstore/rech/nry/uul79xi/models/clipcap/coco_ViT-L14_mlp_default")
+        Path("/lustre/fsn1/projects/rech/nry/uul79xi/store/models/clipcap/coco_ViT-L14_mlp_default")
         / "coco_prefix_latest.pt"
     )
     prefix_length = 10

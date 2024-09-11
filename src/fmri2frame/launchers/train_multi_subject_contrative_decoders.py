@@ -22,7 +22,7 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # 1. Sweep model parameters on one subject from the IBC dataset using Clips stimuli
 
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+dataset_path = "/lustre/fsstor/projects/rech/nry/uul79xi/datasets/ibc"
 
 all_training_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 train_dataset_ids = [
@@ -43,6 +43,7 @@ valid_dataset_ids = [
     # "ibc_clips_seg-valid",
     # "ibc_mk_seg-1",
     "ibc_mk_seg-4",
+    "ibc_mk_seg-5",
 ]
 
 lag = 2
@@ -50,13 +51,13 @@ window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsstor/projects/rech/nry/uul79xi/models/clip",
+        "sd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/stable_diffusion",
+        "vd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/versatile_diffusion",
+        "vdvae": "/lustre/fsstor/projects/rech/nry/uul79xi/models/vdvae",
     }
 )
-cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
 
 
 # Baseline configuration
@@ -94,16 +95,21 @@ baseline_config.update(
 )
 
 
-exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
+exps_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/inter-species")
 alignments_path = exps_path / "alignments" / "clips-train_mm_alpha-0.5"
+alignments_path = (
+    exps_path
+    / "alignments"
+    / "clips-train_mm_div-kl_alpha-0.5_rho-1.0e+00_eps-0.0001_reg-joint"
+)
 # alignments_path = exps_path / "alignments" / "clips-train-valid_mk-1-2_mm_alpha-0.5"
 
 # train_subjects_str = f"{'-'.join([f'{s:02d}' for s in train_subjects])}"
 
 # wandb_project_postfix = None
-wandb_project_postfix = "train-clips-train-valid-mk-1-2-3_valid-mk-4"
-# wandb_project_postfix = "train-clips-train_test-clips-valid"
-# wandb_project_postfix = "train-clips-train-valid_mk-1-2_test-mk-4"
+# wandb_project_postfix = "train-clips-train-valid-mk-1-2-3_valid-mk-4"
+# wandb_project_postfix = "train-clips-train_test-clips-valid-dedup"
+wandb_project_postfix = "train-clips-train-valid_mk-1-2-3_test-mk-4-5"
 # wandb_project_postfix = "train-clips-train-valid_mk-2-3-4-5_test-mk-1"
 # wandb_project_postfix = "train-clips-train_test-clips-valid"
 
@@ -129,7 +135,7 @@ def train_brain_decoder_wrapper(args):
         f"Train multi-subject decoder {reference_subject} {latent_type}"
     )
 
-    checkpoints_path = None
+    # checkpoints_path = None
     checkpoints_path = (
         exps_path
         / "decoders"
@@ -137,11 +143,12 @@ def train_brain_decoder_wrapper(args):
         / "contrastive"
         # brain decoder training data
         # / "clips-train"
+        # / "clips-train"
         / "clips-train-valid-mk-1-2-3"
         # / "clips-train-valid_mk-2-3-4-5"
         # alignment plans
         / "clips-train_mm_alpha-0.5"
-        # / "clips-train-valid_mk-1-2_mm_alpha-0.5"
+        # / "clips-train-valid_mk-1-2-3_mm_alpha-0.5"
         # reference subject, training subjects and latent type
         / f"ref-{reference_subject:02d}_train-{train_subjects_str}_{latent_type}"
     )

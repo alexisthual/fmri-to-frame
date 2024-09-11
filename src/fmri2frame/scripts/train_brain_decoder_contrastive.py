@@ -187,7 +187,7 @@ def train_decoder(
     run = wandb.init(
         project=wandb_project,
         tags=wandb_tags,
-        dir=Path("/gpfsscratch/rech/nry/uul79xi"),
+        dir=Path("/lustre/fsn1/projects/rech/nry/uul79xi"),
         config={
             "out_dim": out_dim,
             "hidden_size_backbone": hidden_size_backbone,
@@ -307,65 +307,66 @@ def train_decoder(
         # Training step
         brain_decoder.train()
         for train_i, (brain_features, latent_features) in enumerate(train_dl):
-            with torch.cuda.amp.autocast():
-                brain_features = brain_features.to(device, non_blocking=True)
-                latent_features = latent_features.to(device, non_blocking=True)
+            brain_features = brain_features.to(device, non_blocking=True)
+            latent_features = latent_features.to(device, non_blocking=True)
+            # Compute predictions
+            (
+                brain_features_mixco,
+                perm,
+                betas,
+                select,
+            ) = mixco_sample_augmentation(brain_features)
 
-                # Compute predictions
-                (
-                    brain_features_mixco,
-                    perm,
-                    betas,
-                    select,
-                ) = mixco_sample_augmentation(brain_features)
+            optimizer.zero_grad()
 
-                optimizer.zero_grad()
+            # _, predictions_contrastive, predictions_reconstruction = brain_decoder(
+            _, predictions_contrastive = brain_decoder(
+                brain_features_mixco
+            )
 
-                # _, predictions_contrastive, predictions_reconstruction = brain_decoder(
-                _, predictions_contrastive = brain_decoder(
-                    brain_features_mixco
-                )
+            # Evaluate mixco loss
+            predictions_contrastive_norm = F.normalize(
+                predictions_contrastive, dim=-1
+            )
+            latent_features_norm = F.normalize(latent_features, dim=-1)
 
-                # Evaluate mixco loss
+            mixco_loss = mixco_symmetrical_nce_loss(
+                predictions_contrastive_norm,
+                latent_features_norm,
+                temperature=temperature,
+                perm=perm,
+                betas=betas,
+                select=select,
+            )
+
+            # Evaluate MSE loss
+            # mse_loss = F.mse_loss(
+            #     predictions_reconstruction,
+            #     # standardize latent features
+            #     (latent_features - m) / s,
+            # )
+
+            # Evaluate symmetrical NCE loss
+            with torch.no_grad():
+                # Need to run a forward with un-augmented brain features
+                _, predictions_contrastive = brain_decoder(brain_features)
                 predictions_contrastive_norm = F.normalize(
                     predictions_contrastive, dim=-1
                 )
-                latent_features_norm = F.normalize(latent_features, dim=-1)
-
-                mixco_loss = mixco_symmetrical_nce_loss(
+                # latent_features_norm = F.normalize(latent_features, dim=-1)
+                symm_nce_loss = mixco_symmetrical_nce_loss(
                     predictions_contrastive_norm,
                     latent_features_norm,
                     temperature=temperature,
-                    perm=perm,
-                    betas=betas,
-                    select=select,
                 )
 
-                # Evaluate MSE loss
-                # mse_loss = F.mse_loss(
-                #     predictions_reconstruction,
-                #     # standardize latent features
-                #     (latent_features - m) / s,
-                # )
-
-                # Evaluate symmetrical NCE loss
-                with torch.no_grad():
-                    # Need to run a forward with un-augmented brain features
-                    _, predictions_contrastive = brain_decoder(brain_features)
-                    predictions_contrastive_norm = F.normalize(
-                        predictions_contrastive, dim=-1
-                    )
-                    # latent_features_norm = F.normalize(latent_features, dim=-1)
-                    symm_nce_loss = mixco_symmetrical_nce_loss(
-                        predictions_contrastive_norm,
-                        latent_features_norm,
-                        temperature=temperature,
-                    )
-
-                # Backpropagate
-                # loss = (1 - alpha) * mixco_loss + alpha * mse_loss
-                mixco_loss.backward()
-                optimizer.step()
+            # Backpropagate
+            # WARN: this step should absolutely be ran outside of
+            # the autocast block when using torch, otherwise
+            # backpropagated gradients won't be optimal
+            # loss = (1 - alpha) * mixco_loss + alpha * mse_loss
+            mixco_loss.backward()
+            optimizer.step()
 
             train_mixco_losses.append(mixco_loss.item())
             # train_mse_losses.append(mse_loss.item())

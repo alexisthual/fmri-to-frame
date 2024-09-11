@@ -24,20 +24,20 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 subject = 4
 train_dataset_ids = ["ibc_clips_seg-train"]
 valid_dataset_ids = ["ibc_clips_seg-valid-dedup"]
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+dataset_path = "/lustre/fsstor/projects/rech/nry/uul79xi/datasets/ibc"
 
 lag = 2
 window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsstor/projects/rech/nry/uul79xi/models/clip",
+        "sd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/stable_diffusion",
+        "vd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/versatile_diffusion",
+        "vdvae": "/lustre/fsstor/projects/rech/nry/uul79xi/models/vdvae",
     }
 )
-cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
 
 # Baseline configuration
 baseline_config = {
@@ -46,11 +46,11 @@ baseline_config = {
     "dropout": 0.3,
     "n_res_blocks": 2,
     "n_proj_blocks": 1,
-    "alpha": 1,
+    # "alpha": 1,
     "temperature": 0.01,
     "batch_size": 128,
     "lr": 1e-4,
-    "weight_decay": 0,
+    "weight_decay": 1e-1,
     "n_epochs": 20,
 }
 
@@ -65,7 +65,7 @@ n_augmentations = 20
 baseline_config.update({
     "dropout": 0.5,
     "temperature": 0.03,
-    "alpha": 0.5,
+    # "alpha": 0.5,
 })
 
 # Possible fine-tuned values
@@ -77,9 +77,9 @@ finetuned_values = {
     # "n_proj_blocks": [0, 2],
     # "temperature": [0.1, 0.03, 0.003, 0.001, 0.0001],
     # "batch_size": [32, 64, 128, 256, 512, 1024],
-    "lr": [1e-3, 1e-5, 1e-6],
+    # "lr": [1e-3, 1e-5, 1e-6],
     # "weight_decay": [1e-1, 1e-2, 1e-3, 1e-4],
-    # "alpha": [0.1],
+    # "alpha": [1 - 1e-1, 1 - 1e-2, 1 - 1e-3, 1 - 1e-4],
 }
 
 # Launch 1 job with baseline config
@@ -88,17 +88,7 @@ args_map = [{}] + [{k: v} for k, values in finetuned_values.items() for v in val
 # args_map = [{k: v} for k, values in finetuned_values.items() for v in values]
 # args_map = args_map[:2]
 
-checkpoints_path = None
-# checkpoints_path = (
-#     exps_path
-#     / "decoders_multi-subject"
-#     / "contrastive"
-#     / "clips-train-valid_mk-1-2"
-#     / "clips-train-valid_mk-1-2_mm"
-#     / f"sub-{reference_subject:02d}_{latent_type}"
-# )
-if checkpoints_path is not None:
-    checkpoints_path.mkdir(parents=True, exist_ok=True)
+exps_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/inter-species")
 
 # wandb_project_postfix = None
 # wandb_project_postfix = "train-clips-train_test-clips-valid1"
@@ -115,6 +105,28 @@ def train_brain_decoder_wrapper(args):
     a = list(finetuned_config.keys())
     wandb_tags = [a[0] if len(a) > 0 else "baseline"]
 
+    run_config = {
+        **baseline_config,
+        **finetuned_config,
+    }
+
+    # checkpoints_path = None
+    checkpoints_path = (
+        exps_path
+        / "decoders"
+        / "single-subject"
+        # decoder type
+        / "contrastive"
+        # / f"fused_alpha-{run_config['alpha']}"
+        # training data
+        / "clips-train"
+        # # alignment data
+        # / "clips-train-valid_mk-1-2_mm"
+        / f"sub-{subject:02d}_{latent_type}"
+    )
+    if checkpoints_path is not None:
+        checkpoints_path.mkdir(parents=True, exist_ok=True)
+
     train_single_subject_brain_decoder(
         train_dataset_ids=train_dataset_ids,
         valid_dataset_ids=valid_dataset_ids,
@@ -129,10 +141,7 @@ def train_brain_decoder_wrapper(args):
         # model + training parameters
         wandb_project_postfix=wandb_project_postfix,
         wandb_tags=wandb_tags,
-        **{
-            **baseline_config,
-            **finetuned_config,
-        },
+        **run_config,
         checkpoints_path=checkpoints_path,
     )
 

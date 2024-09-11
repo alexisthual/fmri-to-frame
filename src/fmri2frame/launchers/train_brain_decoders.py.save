@@ -28,15 +28,15 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 def load_datamodule(subject, latent_type):
     """Load a datamodule for a given subject and latent type."""
     dataset_id = "ibc"
-    dataset_path = "/gpfsstore/rech/nry/uul79xi/data/ibc"
+    dataset_path = "/lustre/fsstor/projects/rech/nry/uul79xi/data/ibc"
     lag = 2
     window_size = 2
 
     pretrained_models = SimpleNamespace(
         **{
-            "vdvae": "/gpfsstore/rech/nry/uul79xi/data/vdvae",
-            "vd": "/gpfsstore/rech/nry/uul79xi/data",
-            "sd": "/gpfsstore/rech/nry/uul79xi/data/stable_diffusion",
+            "vdvae": "/lustre/fsstor/projects/rech/nry/uul79xi/data/vdvae",
+            "vd": "/lustre/fsstor/projects/rech/nry/uul79xi/data",
+            "sd": "/lustre/fsstor/projects/rech/nry/uul79xi/data/stable_diffusion",
         }
     )
 
@@ -56,7 +56,7 @@ def load_datamodule(subject, latent_type):
         agg="mean",
         support="fsaverage5",
         shuffle_labels=False,
-        cache="/gpfsscratch/rech/nry/uul79xi/fmri2frame/cache",
+        cache="/lustre/fsn1/projects/rech/nry/uul79xi/fmri2frame/cache",
     )
 
 
@@ -79,7 +79,7 @@ def project_data(
 ):
     """Project data from source to target subject."""
     mappings_path = Path(
-        "/gpfsscratch/rech/nry/uul79xi/outputs/_068_compute_all_nsd_alignments"
+        "/lustre/fsn1/projects/rech/nry/uul79xi/outputs/_068_compute_all_nsd_alignments"
     )
     invert = False
     left_mapping_path = (
@@ -649,7 +649,7 @@ if __name__ == "__main__":
     eps = 1e-4
     tanh_scale = None
 
-    output_path = Path("/gpfsscratch/rech/nry/uul79xi/outputs/test")
+    output_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/outputs/test")
     output_path.mkdir(exist_ok=True, parents=True)
 
     (output_path / f"seeded_scores_alpha-{alpha}_tanh-{tanh_scale}").mkdir(

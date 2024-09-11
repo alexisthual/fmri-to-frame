@@ -13,12 +13,12 @@ from scipy.spatial.distance import cdist
 from fmri2frame.scripts.setup_xp import setup_xp
 
 fsaverage_geometry_path = Path(
-    "/gpfsstore/rech/nry/uul79xi/outputs/_063_compute_fs5_geometry/"
+    "/lustre/fsn1/projects/rech/nry/uul79xi/store/outputs/_063_compute_fs5_geometry/"
 )
 macaque_geometry_path = Path(
-    "/gpfsstore/rech/nry/uul79xi/outputs/_197_leuven_geometries"
+    "/lustre/fsn1/projects/rech/nry/uul79xi/store/outputs/_197_leuven_geometries"
 )
-macaque_surfaces_path = Path("/gpfsstore/rech/nry/uul79xi/datasets/leuven/Surfaces")
+macaque_surfaces_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/leuven/Surfaces")
 
 
 def get_n_vertices_left(subject):

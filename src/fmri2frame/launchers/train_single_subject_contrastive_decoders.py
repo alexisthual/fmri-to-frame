@@ -31,20 +31,20 @@ valid_dataset_ids = [
     "ibc_mk_seg-4",
     "ibc_mk_seg-5",
 ]
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/ibc"
 
 lag = 2
 window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/clip",
+        "sd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/stable_diffusion",
+        "vd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/versatile_diffusion",
+        "vdvae": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/vdvae",
     }
 )
-cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
 
 # Baseline configuration
 baseline_config = {
@@ -76,7 +76,7 @@ baseline_config.update({
 })
 
 
-exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
+exps_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/inter-species")
 
 # wandb_project_postfix = None
 # wandb_project_postfix = "train-clips-train_test-clips-valid1"
@@ -105,7 +105,7 @@ def train_brain_decoder_wrapper(args):
         / "contrastive"
         # / f"fused_alpha-{run_config['alpha']}"
         # training data
-        / "clips-train"
+        / "clips-train-valid_mk-1-2-3"
         # # alignment data
         # / "clips-train-valid_mk-1-2_mm"
         / f"sub-{subject:02d}_{latent_type}"

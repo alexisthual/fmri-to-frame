@@ -21,7 +21,7 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # 1. Sweep model parameters on one subject from the IBC dataset using Clips stimuli
 
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
+dataset_path = "/lustre/fsstor/projects/rech/nry/uul79xi/datasets/ibc"
 
 train_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 train_dataset_ids = [
@@ -48,13 +48,13 @@ window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsstor/projects/rech/nry/uul79xi/models/clip",
+        "sd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/stable_diffusion",
+        "vd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/versatile_diffusion",
+        "vdvae": "/lustre/fsstor/projects/rech/nry/uul79xi/models/vdvae",
     }
 )
-cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
 
 
 # Baseline configuration
@@ -64,7 +64,7 @@ baseline_config = {
     "dropout": 0.3,
     "n_res_blocks": 2,
     "n_proj_blocks": 1,
-    "alpha": 0,
+    # "alpha": 0,
     "temperature": 0.01,
     "batch_size": 128,
     "lr": 1e-4,
@@ -103,7 +103,7 @@ finetuned_values = {
     # "batch_size": [32, 64, 256, 512, 1024],
     # "lr": [1e-2, 3e-3],
     # "weight_decay": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6],
-    "alpha": [],
+    # "alpha": [],
 }
 
 # Launch 1 job with baseline config
@@ -111,7 +111,7 @@ finetuned_values = {
 args_map = [{}] + [{k: v} for k, values in finetuned_values.items() for v in values]
 # args_map = [{k: v} for k, values in finetuned_values.items() for v in values]
 
-exps_path = Path("/gpfsscratch/rech/nry/uul79xi/inter-species")
+exps_path = Path("/lustre/fsn1/projects/rech/nry/uul79xi/inter-species")
 alignments_path = exps_path / "alignments" / "clips-train_mm_alpha-0.5"
 # alignments_path = exps_path / "alignments" / "clips-train-valid_mk-1-2_mm_alpha-0.5"
 

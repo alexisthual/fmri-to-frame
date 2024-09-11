@@ -19,65 +19,35 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 # %%
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/gpfsstore/rech/nry/uul79xi/models/clip",
-        "sd": "/gpfsstore/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/gpfsstore/rech/nry/uul79xi/models/versatile_diffusion",
-        "vdvae": "/gpfsstore/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/clip",
+        "sd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/stable_diffusion",
+        "vd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/versatile_diffusion",
+        "vdvae": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/vdvae",
     }
 )
 
 seed = 0
 batch_size = 32
-cache = "/gpfsscratch/rech/nry/uul79xi/cache"
+cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
 
 # 1. Human subjects
 
-dataset_ids = ["ibc_clips_seg-train", "ibc_clips_seg-valid"]
-dataset_ids = [
-    "ibc_clips_seg-train",
-    "ibc_clips_seg-valid",
-    "ibc_clips_seg-valid-dedup",
-    # "ibc_clips_seg-valid2",
-    # "ibc_clips_seg-valid3",
-    "ibc_mk_seg-1",
-    "ibc_mk_seg-2",
-    "ibc_mk_seg-3",
-    "ibc_mk_seg-4",
-    "ibc_mk_seg-5",
-]
-dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/ibc"
-subjects = [4, 6, 8, 9, 11, 12, 14, 15]
-# subjects = [4]
-
-n_augmentations = 20
-
-latent_types = [
-    "clip_vision_cls",
-    # "sd_autokl",
-    # "clip_vision_latents",
-    # "vdvae_encoder_31l_latents",
-]
-
-args_map = list(
-    product(
-        dataset_ids,
-        latent_types,
-        subjects,
-    )
-)
-
-
-# 2. Non-human subjects
-
+# dataset_ids = ["ibc_clips_seg-train", "ibc_clips_seg-valid"]
 # dataset_ids = [
-#     "leuven_mk_seg-1",
-#     "leuven_mk_seg-2",
-#     "leuven_mk_seg-3",
-#     "leuven_mk_seg-4",
-#     "leuven_mk_seg-5",
+#     "ibc_clips_seg-train",
+#     "ibc_clips_seg-valid",
+#     "ibc_clips_seg-valid-dedup",
+#     # "ibc_clips_seg-valid2",
+#     # "ibc_clips_seg-valid3",
+#     "ibc_mk_seg-1",
+#     "ibc_mk_seg-2",
+#     "ibc_mk_seg-3",
+#     "ibc_mk_seg-4",
+#     "ibc_mk_seg-5",
 # ]
-# dataset_path = "/gpfsstore/rech/nry/uul79xi/datasets/leuven"
-# subjects = ["Luce", "Jack"]
+# dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/ibc"
+# subjects = [4, 6, 8, 9, 11, 12, 14, 15]
+# # subjects = [4]
 
 # n_augmentations = 20
 
@@ -95,6 +65,36 @@ args_map = list(
 #         subjects,
 #     )
 # )
+
+
+# 2. Non-human subjects
+
+dataset_ids = [
+    "leuven_mk_seg-1",
+    "leuven_mk_seg-2",
+    "leuven_mk_seg-3",
+    "leuven_mk_seg-4",
+    "leuven_mk_seg-5",
+]
+dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/leuven"
+subjects = ["Luce", "Jack"]
+
+n_augmentations = 20
+
+latent_types = [
+    "clip_vision_cls",
+    # "sd_autokl",
+    # "clip_vision_latents",
+    # "vdvae_encoder_31l_latents",
+]
+
+args_map = list(
+    product(
+        dataset_ids,
+        latent_types,
+        subjects,
+    )
+)
 
 
 # %%
