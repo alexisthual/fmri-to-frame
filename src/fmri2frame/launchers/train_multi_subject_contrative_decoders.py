@@ -22,7 +22,7 @@ from fmri2frame.scripts.utils import get_logger, monitor_jobs
 
 # 1. Sweep model parameters on one subject from the IBC dataset using Clips stimuli
 
-dataset_path = "/lustre/fsstor/projects/rech/nry/uul79xi/datasets/ibc"
+dataset_path = "/lustre/fsn1/projects/rech/nry/uul79xi/store/datasets/ibc"
 
 all_training_subjects = [4, 6, 8, 9, 11, 12, 14, 15]
 train_dataset_ids = [
@@ -51,10 +51,10 @@ window_size = 2
 
 pretrained_models = SimpleNamespace(
     **{
-        "clip": "/lustre/fsstor/projects/rech/nry/uul79xi/models/clip",
-        "sd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/stable_diffusion",
-        "vd": "/lustre/fsstor/projects/rech/nry/uul79xi/models/versatile_diffusion",
-        "vdvae": "/lustre/fsstor/projects/rech/nry/uul79xi/models/vdvae",
+        "clip": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/clip",
+        "sd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/stable_diffusion",
+        "vd": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/versatile_diffusion",
+        "vdvae": "/lustre/fsn1/projects/rech/nry/uul79xi/store/models/vdvae",
     }
 )
 cache = "/lustre/fsn1/projects/rech/nry/uul79xi/cache"
